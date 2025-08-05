@@ -6,18 +6,16 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
-    GatewayIntentBits.DirectMessages,
     GatewayIntentBits.GuildMembers
   ]
 });
 
-// Configuration
+// Configuration using environment variables
 const CONFIG = {
-  POV_CHANNEL_ID: process.env.POV_CHANNEL_ID || '1398888616532643860',
-  OUTPUT_CHANNEL_ID: process.env.OUTPUT_CHANNEL_ID || '1398888616532643861',
-  ADMIN_ROLE_IDS: process.env.ADMIN_ROLE_IDS ? process.env.ADMIN_ROLE_IDS.split(',') : ['1368991091868700773', '1368991334513508532'],
-  BOT_PREFIX: process.env.BOT_PREFIX || '!',
-  COMMAND_CHANNEL_ID: process.env.COMMAND_CHANNEL_ID || null,
+  POV_CHANNEL_ID: process.env.POV_CHANNEL_ID,
+  OUTPUT_CHANNEL_ID: process.env.OUTPUT_CHANNEL_ID,
+  ADMIN_ROLE_IDS: process.env.ADMIN_ROLE_IDS?.split(',') || [],
+  COMMAND_CHANNEL_ID: process.env.COMMAND_CHANNEL_ID,
   DISCORD_TOKEN: process.env.DISCORD_TOKEN,
   CLIENT_ID: process.env.CLIENT_ID
 };
@@ -32,6 +30,9 @@ const EVENT_NAMES = [
   "𝔹𝕒𝕟𝕜 ℝ𝕠𝕓𝕓𝕖𝕣𝕪", "ℍ𝕠𝕥𝕖𝕝 𝕋𝕒𝕜𝕖𝕠𝕧𝕖𝕣", "Family War", "Money Printing Machine",
   "Informal (Battle for business for unofficial organization)"
 ];
+
+// ... [REST OF YOUR BOT CODE REMAINS UNCHANGED] ...
+
 
 // Register slash commands
 async function registerCommands() {
@@ -458,6 +459,6 @@ async function processAttendance(eventName, date, users, sourceMessage, commandC
 
 // Start the bot
 client.login(CONFIG.DISCORD_TOKEN).catch(error => {
-  console.error(`\x1b[31m[${new Date().toISOString()}] 🛑 Failed to login: ${error.message}\x1b[0m`);
+  console.error(`🛑 Failed to login: ${error}`);
   process.exit(1);
 });

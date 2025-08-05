@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Slayers Family Bot Status</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #1a1a2e, #16213e);
+            color: white;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            text-align: center;
+        }
+        .container {
+            background: rgba(0, 0, 0, 0.7);
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+            max-width: 600px;
+            width: 90%;
+        }
+        h1 {
+            color: #f8c537;
+            margin-bottom: 1.5rem;
+        }
+        .status {
+            font-size: 1.2rem;
+            margin: 1rem 0;
+            padding: 0.8rem;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.1);
+        }
+        .online {
+            color: #4ade80;
+        }
+        .offline {
+            color: #f87171;
+        }
+        .logo {
+            width: 100px;
+            height: 100px;
+            margin-bottom: 1rem;
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <img src="https://i.imgur.com/JKQ7QyB.png" alt="Slayers Logo" class="logo">
+        <h1>Slayers Family Bot Status</h1>
+        
+        <div class="status" id="bot-status">
+            <strong>Bot Status:</strong> <span class="online">Loading...</span>
+        </div>
+        
+        <div class="status" id="db-status">
+            <strong>Database Status:</strong> <span class="online">Loading...</span>
+        </div>
+        
+        <div class="status" id="uptime">
+            <strong>Uptime:</strong> Loading...
+        </div>
+    </div>
+
+    <script>
+        async function updateStatus() {
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+                
+                document.getElementById('bot-status').innerHTML = 
+                    `<strong>Bot Status:</strong> <span class="${data.bot === 'connected' ? 'online' : 'offline'}">${data.bot}</span>`;
+                
+                document.getElementById('db-status').innerHTML = 
+                    `<strong>Database Status:</strong> <span class="${data.mongo === 'connected' ? 'online' : 'offline'}">${data.mongo}</span>`;
+                
+                // Format uptime
+                const hours = Math.floor(data.uptime / 3600);
+                const minutes = Math.floor((data.uptime % 3600) / 60);
+                const seconds = Math.floor(data.uptime % 60);
+                document.getElementById('uptime').innerHTML = 
+                    `<strong>Uptime:</strong> ${hours}h ${minutes}m ${seconds}s`;
+            } catch (error) {
+                document.getElementById('bot-status').innerHTML = 
+                    `<strong>Bot Status:</strong> <span class="offline">Error fetching status</span>`;
+            }
+        }
+        
+        // Update immediately and every 5 seconds
+        updateStatus();
+        setInterval(updateStatus, 5000);
+    </script>
+</body>
+</html>

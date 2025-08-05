@@ -1,13 +1,12 @@
-# Slayers Family Attendance Bot
+# 🚀 Slayers Family Discord Bot
 
-A Discord.js v14 bot designed to manage event attendance, send POV reminders, and motivate participants in the **Slayers Family** (Grand RP).
+Bot for tracking event attendance in Discord.
 
 ## Features
-- Slash command `/attendance` to log event participants
-- Sends DMs to users with POV instructions
-- Logs formatted attendance in output channel
-- Supports multiple events and custom dates
+- Record event participation
+- Send motivational DMs to participants
+- Generate attendance reports
 
-## Setup
-
-1. Clone this repo:
+## Requirements
+- Node.js 18+
+- Discord.js 14

@@ -2,23 +2,21 @@ require('dotenv').config();
 const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder } = require('discord.js');
 const express = require('express');
 const mongoose = require('mongoose');
-const fetch = require('node-fetch');
+const axios = require('axios');
+const path = require('path');
 
-// Initialize Express app for Render web service
+// Initialize Express app
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 
-// MongoDB Connection
+// MongoDB Connection (modern syntax)
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://meetvora1883:meetvora1883@discordbot.xkgfuaj.mongodb.net/?retryWrites=true&w=majority';
 
-mongoose.connect(MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-})
-.then(() => console.log('✅ Connected to MongoDB'))
-.catch(err => console.error('❌ MongoDB connection error:', err));
+mongoose.connect(MONGODB_URI)
+  .then(() => console.log('✅ Connected to MongoDB'))
+  .catch(err => console.error('❌ MongoDB connection error:', err));
 
-// Define a simple MongoDB schema for attendance tracking
+// Attendance Schema
 const attendanceSchema = new mongoose.Schema({
   eventName: String,
   date: String,
@@ -29,7 +27,7 @@ const attendanceSchema = new mongoose.Schema({
 
 const Attendance = mongoose.model('Attendance', attendanceSchema);
 
-// Discord Client setup
+// Discord Client
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -46,61 +44,8 @@ const CONFIG = {
   ADMIN_ROLE_IDS: process.env.ADMIN_ROLE_IDS?.split(',') || ['1398888612388540538', '1398888612388540537'],
   COMMAND_CHANNEL_ID: process.env.COMMAND_CHANNEL_ID || '1398888617312518188',
   DISCORD_TOKEN: process.env.DISCORD_TOKEN,
-  CLIENT_ID: process.env.CLIENT_ID || '1402002510885163058',
-  RENDER_IPS: ['52.41.36.82', '54.191.253.12', '44.226.122.3']
+  CLIENT_ID: process.env.CLIENT_ID || '1402002510885163058'
 };
-
-// Express Middleware
-app.use(express.json());
-app.use((req, res, next) => {
-  const clientIp = req.ip.replace('::ffff:', '');
-  if (CONFIG.RENDER_IPS.includes(clientIp)) {
-    next();
-  } else {
-    console.warn(`⚠️ Blocked request from non-Render IP: ${clientIp}`);
-    res.status(403).send('Forbidden');
-  }
-});
-
-// Health check endpoint
-app.get('/', (req, res) => {
-  res.json({
-    status: 'online',
-    bot: client.readyAt ? 'connected' : 'connecting',
-    mongo: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
-    uptime: process.uptime()
-  });
-});
-
-// API endpoint to get attendance data (optional)
-app.get('/api/attendance', async (req, res) => {
-  try {
-    const data = await Attendance.find().sort({ timestamp: -1 }).limit(50);
-    res.json(data);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// Start Express server
-app.listen(PORT, () => {
-  console.log(`🖥️ Keepalive server running on port ${PORT}`);
-});
-
-// Ping self every 5 minutes to prevent shutdown
-setInterval(() => {
-  fetch(`http://localhost:${PORT}`)
-    .then(() => console.log('♻️ Keepalive ping sent'))
-    .catch(() => console.warn('⚠️ Keepalive ping failed'));
-}, 300000);
-
-// Discord bot events
-client.on('ready', () => {
-  console.log(`🤖 Logged in as ${client.user.tag}`);
-  console.log(`📌 POV Channel: ${CONFIG.POV_CHANNEL_ID}`);
-  console.log(`📌 Output Channel: ${CONFIG.OUTPUT_CHANNEL_ID}`);
-  client.user.setActivity('Slayers Family Events', { type: 'WATCHING' });
-});
 
 // Event names
 const EVENT_NAMES = [
@@ -115,6 +60,40 @@ const EVENT_NAMES = [
   "Family War", "Money Printing Machine",
   "Informal (Battle for business for unofficial organization)"
 ];
+
+// Express Middleware
+app.use(express.json());
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Health endpoint
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'status.html'));
+});
+
+// API endpoint
+app.get('/api/status', (req, res) => {
+  res.json({
+    status: 'online',
+    bot: client.readyAt ? 'connected' : 'connecting',
+    mongo: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+    uptime: process.uptime()
+  });
+});
+
+// Start server
+app.listen(PORT, () => {
+  console.log(`🖥️ Server running on port ${PORT}`);
+});
+
+// Keepalive ping with axios
+setInterval(async () => {
+  try {
+    await axios.get(`http://localhost:${PORT}/api/status`);
+    console.log('♻️ Keepalive ping successful');
+  } catch (err) {
+    console.warn('⚠️ Keepalive ping failed:', err.message);
+  }
+}, 300000);
 
 // Date utilities
 function getTomorrowDate() {
@@ -143,6 +122,14 @@ function isValidDate(dateString) {
     date.getFullYear() === year
   );
 }
+
+// Discord events
+client.on('ready', () => {
+  console.log(`🤖 Logged in as ${client.user.tag}`);
+  console.log(`📌 POV Channel: ${CONFIG.POV_CHANNEL_ID}`);
+  console.log(`📌 Output Channel: ${CONFIG.OUTPUT_CHANNEL_ID}`);
+  client.user.setActivity('Slayers Family Events', { type: 'WATCHING' });
+});
 
 // Command handlers
 client.on('interactionCreate', async interaction => {
@@ -251,7 +238,7 @@ client.on('interactionCreate', async interaction => {
   }
 });
 
-// Helper function to setup mention collector
+// Helper functions
 function setupMentionCollector(interaction, eventName, date) {
   const mentionFilter = m => m.author.id === interaction.user.id;
   const mentionCollector = interaction.channel.createMessageCollector({
@@ -280,7 +267,6 @@ function setupMentionCollector(interaction, eventName, date) {
   });
 }
 
-// Helper function to setup date collector
 function setupDateCollector(interaction, eventName) {
   const dateFilter = m => m.author.id === interaction.user.id;
   const dateCollector = interaction.channel.createMessageCollector({
@@ -314,7 +300,6 @@ function setupDateCollector(interaction, eventName) {
   });
 }
 
-// Process attendance and send DMs
 async function processAttendance(eventName, date, users, sourceMessage, commandChannel) {
   try {
     const outputChannel = sourceMessage.guild.channels.cache.get(CONFIG.OUTPUT_CHANNEL_ID);
@@ -391,7 +376,7 @@ process.on('uncaughtException', error => {
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
-  console.log('🛑 Received SIGTERM. Shutting down gracefully...');
+  console.log('🛑 Shutting down gracefully...');
   client.destroy();
   mongoose.disconnect();
   process.exit(0);

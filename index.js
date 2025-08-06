@@ -69,7 +69,7 @@ const EVENT_BONUS_CONFIG = {
   "Turf": { type: "fixed", amount: 0 },
   "Store robbery": { type: "fixed", amount: 15000 },
   "Caravan delivery": { type: "fixed", amount: 5000 },
-  "Attacking Prison": { type: "fixed", amount: 0 },
+  "Attacking Prison": { type: "fixed", amount: 10000 },
   "ℍ𝕒𝕣𝕓𝕠𝕣 (battle for the docks)": { type: "per_action", action: "parachute", amount: 25000 },
   "𝕎𝕖𝕒𝕡𝕠𝕟𝕤 𝔽𝕒𝕔𝕥𝕠𝕣𝕪": { type: "per_kill", amount: 25000 },
   "𝔻𝕣𝕦𝕘 𝕃𝕒𝕓": { type: "fixed", amount: 8000 },
@@ -83,7 +83,7 @@ const EVENT_BONUS_CONFIG = {
   "𝕃𝕖𝕗𝕥𝕠𝕧𝕖𝕣 ℂ𝕠𝕞𝕡𝕠𝕟𝕖𝕟𝕥𝕤": { type: "fixed", amount: 0 },
   "ℝ𝕒𝕥𝕚𝕟𝕘 𝔹𝕒𝕥𝕥𝕝𝕖": { type: "per_kill", amount: 20000 },
   "𝔸𝕚𝕣𝕔𝕣𝕒𝕗𝕥 ℂ𝕒𝕣𝕣𝕚𝕖𝕣 (𝕠𝕟 𝕊𝕦𝕟𝕕𝕒𝕪)": { type: "per_action", action: "parachute", amount: 50000 },
-  "𝔹𝕒�𝕟𝕜 ℝ𝕠𝕓𝕓𝕖𝕣𝕪": { type: "fixed", amount: 35000 },
+  "𝔹𝕒𝕟𝕜 ℝ𝕠𝕓𝕓𝕖𝕣𝕪": { type: "fixed", amount: 35000 },
   "ℍ𝕠𝕥𝕖𝕝 𝕋𝕒𝕜𝕖𝕠𝕧𝕖𝕣": { type: "per_kill", amount: 20000 },
   "Family War": { type: "fixed", amount: 0 },
   "Money Printing Machine": { type: "fixed", amount: 0 },
@@ -205,8 +205,66 @@ client.on('ready', async () => {
   client.user.setActivity('Slayers Family Events', { type: 'WATCHING' });
 });
 
-// Interaction handling with queue
-client.on('interactionCreate', interaction => {
+// Interaction handling
+client.on('interactionCreate', async interaction => {
+  // Handle select menus for attendance
+  if (interaction.isStringSelectMenu()) {
+    if (interaction.customId === 'attendance-event-select') {
+      try {
+        await attendanceCommands.attendance.handleEventSelect(interaction, { 
+          EVENT_BONUS_CONFIG, 
+          getTomorrowDate 
+        });
+      } catch (error) {
+        console.error('Event Select Error:', error);
+        if (interaction.isRepliable()) {
+          await interaction.reply({
+            content: '❌ An error occurred while processing event selection',
+            ephemeral: true
+          });
+        }
+      }
+      return;
+    } else if (interaction.customId === 'attendance-date-select') {
+      try {
+        await attendanceCommands.attendance.handleDateSelect(interaction, { 
+          getTomorrowDate, 
+          isValidDate 
+        });
+      } catch (error) {
+        console.error('Date Select Error:', error);
+        if (interaction.isRepliable()) {
+          await interaction.reply({
+            content: '❌ An error occurred while processing date selection',
+            ephemeral: true
+          });
+        }
+      }
+      return;
+    }
+  }
+  
+  // Handle modal submissions for attendance
+  if (interaction.isModalSubmit() && interaction.customId.startsWith('attendance-count-modal-')) {
+    try {
+      await attendanceCommands.attendance.handleModalSubmit(interaction, { 
+        CONFIG, 
+        EVENT_BONUS_CONFIG, 
+        INELIGIBLE_ROLES 
+      });
+    } catch (error) {
+      console.error('Modal Submit Error:', error);
+      if (interaction.isRepliable()) {
+        await interaction.reply({
+          content: '❌ An error occurred while processing attendance data',
+          ephemeral: true
+        });
+      }
+    }
+    return;
+  }
+
+  // Add other interactions to queue
   interactionQueue.push(interaction);
   processQueue();
 });
@@ -217,19 +275,21 @@ async function handleInteraction(interaction) {
     if (interaction.isCommand()) {
       console.log(`⌨️ Command Received: /${interaction.commandName} by ${interaction.user.tag}`);
       const command = allCommands[interaction.commandName];
-      if (command) await command.execute(interaction, {
-        CONFIG,
-        EVENT_BONUS_CONFIG,
-        INELIGIBLE_ROLES,
-        EVENT_NAMES,
-        formatDate,
-        getTomorrowDate,
-        isValidDate
-      });
+      if (command) {
+        await command.execute(interaction, {
+          CONFIG,
+          EVENT_BONUS_CONFIG,
+          INELIGIBLE_ROLES,
+          EVENT_NAMES,
+          formatDate,
+          getTomorrowDate,
+          isValidDate
+        });
+      }
       return;
     }
 
-    // Handle other interaction types here if needed
+    // Handle other interaction types if needed
   } catch (error) {
     console.error('❌ Interaction Handling Error:', error);
     if (interaction.isRepliable() && !interaction.replied) {

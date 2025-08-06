@@ -5,7 +5,8 @@ const {
   StringSelectMenuBuilder,
   ModalBuilder,
   TextInputBuilder,
-  TextInputStyle
+  TextInputStyle,
+  MessageFlags
 } = require('discord.js');
 const mongoose = require('mongoose');
 
@@ -37,7 +38,7 @@ module.exports = {
         );
       await interaction.reply({ 
         embeds: [helpEmbed], 
-        ephemeral: true 
+        flags: MessageFlags.FLAGS.Ephemeral
       });
     }
   },
@@ -49,7 +50,7 @@ module.exports = {
       if (!CONFIG.ADMIN_ROLE_IDS.some(roleId => interaction.member.roles.cache.has(roleId))) {
         return interaction.reply({
           content: '⛔ You lack permissions for this command.',
-          ephemeral: true
+          flags: MessageFlags.FLAGS.Ephemeral
         });
       }
 
@@ -65,7 +66,7 @@ module.exports = {
       await interaction.reply({
         content: '📋 Select an event:',
         components: [row],
-        ephemeral: true
+        flags: MessageFlags.FLAGS.Ephemeral
       });
     }
   }

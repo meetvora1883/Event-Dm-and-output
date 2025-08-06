@@ -9,8 +9,9 @@ const {
   ModalBuilder, 
   TextInputBuilder, 
   TextInputStyle,
-  MessageFlags,
-  Partials
+  REST,
+  Routes,
+  MessageFlags
 } = require('discord.js');
 const express = require('express');
 const mongoose = require('mongoose');
@@ -124,8 +125,7 @@ const client = new Client({
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildMembers
-  ],
-  partials: [Partials.Channel]
+  ]
 });
 
 // Configuration
@@ -210,7 +210,7 @@ const bonusCommands = {
       if (!CONFIG.ADMIN_ROLE_IDS.some(roleId => interaction.member.roles.cache.has(roleId))) {
         return interaction.reply({ 
           content: '⛔ You lack permissions for this command.', 
-          flags: MessageFlags.Flags.Ephemeral 
+          flags: MessageFlags.FLAGS.Ephemeral 
         });
       }
       
@@ -222,13 +222,13 @@ const bonusCommands = {
         await updateBonus(user.id, user.username, amount, 'add', reason);
         await interaction.reply({ 
           content: `✅ Added $${amount} bonus to ${user.username} for: ${reason}`,
-          flags: MessageFlags.Flags.Ephemeral
+          flags: MessageFlags.FLAGS.Ephemeral
         });
       } catch (error) {
         console.error('Add Bonus Error:', error);
         await interaction.reply({ 
           content: `❌ Failed to add bonus: ${error.message}`,
-          flags: MessageFlags.Flags.Ephemeral
+          flags: MessageFlags.FLAGS.Ephemeral
         });
       }
     }
@@ -253,7 +253,7 @@ const bonusCommands = {
       if (!CONFIG.ADMIN_ROLE_IDS.some(roleId => interaction.member.roles.cache.has(roleId))) {
         return interaction.reply({ 
           content: '⛔ You lack permissions for this command.', 
-          flags: MessageFlags.Flags.Ephemeral 
+          flags: MessageFlags.FLAGS.Ephemeral 
         });
       }
       
@@ -265,13 +265,13 @@ const bonusCommands = {
         await updateBonus(user.id, user.username, amount, 'deduct', reason);
         await interaction.reply({ 
           content: `✅ Deducted $${amount} from ${user.username} for: ${reason}`,
-          flags: MessageFlags.Flags.Ephemeral
+          flags: MessageFlags.FLAGS.Ephemeral
         });
       } catch (error) {
         console.error('Less Bonus Error:', error);
         await interaction.reply({ 
           content: `❌ Failed to deduct bonus: ${error.message}`,
-          flags: MessageFlags.Flags.Ephemeral
+          flags: MessageFlags.FLAGS.Ephemeral
         });
       }
     }
@@ -296,7 +296,7 @@ const bonusCommands = {
       if (!CONFIG.ADMIN_ROLE_IDS.some(roleId => interaction.member.roles.cache.has(roleId))) {
         return interaction.reply({ 
           content: '⛔ You lack permissions for this command.', 
-          flags: MessageFlags.Flags.Ephemeral 
+          flags: MessageFlags.FLAGS.Ephemeral 
         });
       }
       
@@ -326,13 +326,13 @@ const bonusCommands = {
         
         await interaction.reply({ 
           content: `✅ Marked $${amount} as paid for ${user.username}`,
-          flags: MessageFlags.Flags.Ephemeral
+          flags: MessageFlags.FLAGS.Ephemeral
         });
       } catch (error) {
         console.error('Bonus Paid Error:', error);
         await interaction.reply({ 
           content: `❌ Failed to mark bonus as paid: ${error.message}`,
-          flags: MessageFlags.Flags.Ephemeral
+          flags: MessageFlags.FLAGS.Ephemeral
         });
       }
     }
@@ -345,7 +345,7 @@ const bonusCommands = {
       if (!CONFIG.ADMIN_ROLE_IDS.some(roleId => interaction.member.roles.cache.has(roleId))) {
         return interaction.reply({ 
           content: '⛔ You lack permissions for this command.', 
-          flags: MessageFlags.Flags.Ephemeral 
+          flags: MessageFlags.FLAGS.Ephemeral 
         });
       }
       
@@ -355,7 +355,7 @@ const bonusCommands = {
         if (bonuses.length === 0) {
           return interaction.reply({ 
             content: 'No bonus records found.', 
-            flags: MessageFlags.Flags.Ephemeral 
+            flags: MessageFlags.FLAGS.Ephemeral 
           });
         }
         
@@ -374,13 +374,13 @@ const bonusCommands = {
         
         await interaction.reply({ 
           embeds: [embed], 
-          flags: MessageFlags.Flags.Ephemeral 
+          flags: MessageFlags.FLAGS.Ephemeral 
         });
       } catch (error) {
         console.error('List Bonus Error:', error);
         await interaction.reply({ 
           content: '❌ Failed to retrieve bonus records',
-          flags: MessageFlags.Flags.Ephemeral
+          flags: MessageFlags.FLAGS.Ephemeral
         });
       }
     }
@@ -405,7 +405,7 @@ const bonusCommands = {
       
       await interaction.reply({ 
         embeds: [embed], 
-        flags: MessageFlags.Flags.Ephemeral 
+        flags: MessageFlags.FLAGS.Ephemeral 
       });
     }
   },
@@ -433,7 +433,7 @@ const bonusCommands = {
       if (!CONFIG.ADMIN_ROLE_IDS.some(roleId => interaction.member.roles.cache.has(roleId))) {
         return interaction.reply({ 
           content: '⛔ You lack permissions for this command.', 
-          flags: MessageFlags.Flags.Ephemeral 
+          flags: MessageFlags.FLAGS.Ephemeral 
         });
       }
 
@@ -448,7 +448,7 @@ const bonusCommands = {
         if (!bonusConfig || bonusConfig.type !== 'per_action' || bonusConfig.action !== 'parachute') {
           return interaction.reply({
             content: '❌ This event is not configured for parachute collections',
-            flags: MessageFlags.Flags.Ephemeral
+            flags: MessageFlags.FLAGS.Ephemeral
           });
         }
 
@@ -507,13 +507,13 @@ const bonusCommands = {
 
         await interaction.reply({
           content: `✅ Recorded ${count} parachutes for ${user.username} ($${bonusAmount} bonus)`,
-          flags: MessageFlags.Flags.Ephemeral
+          flags: MessageFlags.FLAGS.Ephemeral
         });
       } catch (error) {
         console.error('Parachute Command Error:', error);
         await interaction.reply({
           content: `❌ Failed to record parachutes: ${error.message}`,
-          flags: MessageFlags.Flags.Ephemeral
+          flags: MessageFlags.FLAGS.Ephemeral
         });
       }
     }
@@ -542,7 +542,7 @@ const bonusCommands = {
       if (!CONFIG.ADMIN_ROLE_IDS.some(roleId => interaction.member.roles.cache.has(roleId))) {
         return interaction.reply({ 
           content: '⛔ You lack permissions for this command.', 
-          flags: MessageFlags.Flags.Ephemeral 
+          flags: MessageFlags.FLAGS.Ephemeral 
         });
       }
 
@@ -557,7 +557,7 @@ const bonusCommands = {
         if (!bonusConfig || bonusConfig.type !== 'per_kill') {
           return interaction.reply({
             content: '❌ This event is not configured for kill bonuses',
-            flags: MessageFlags.Flags.Ephemeral
+            flags: MessageFlags.FLAGS.Ephemeral
           });
         }
 
@@ -616,13 +616,13 @@ const bonusCommands = {
 
         await interaction.reply({
           content: `✅ Recorded ${count} kills for ${user.username} ($${bonusAmount} bonus)`,
-          flags: MessageFlags.Flags.Ephemeral
+          flags: MessageFlags.FLAGS.Ephemeral
         });
       } catch (error) {
         console.error('Kills Command Error:', error);
         await interaction.reply({
           content: `❌ Failed to record kills: ${error.message}`,
-          flags: MessageFlags.Flags.Ephemeral
+          flags: MessageFlags.FLAGS.Ephemeral
         });
       }
     }
@@ -645,7 +645,7 @@ const mainCommands = {
         );
       await interaction.reply({ 
         embeds: [helpEmbed], 
-        flags: MessageFlags.Flags.Ephemeral 
+        flags: MessageFlags.FLAGS.Ephemeral 
       });
     }
   },
@@ -657,7 +657,7 @@ const mainCommands = {
       if (!CONFIG.ADMIN_ROLE_IDS.some(roleId => interaction.member.roles.cache.has(roleId))) {
         return interaction.reply({
           content: '⛔ You lack permissions for this command.',
-          flags: MessageFlags.Flags.Ephemeral
+          flags: MessageFlags.FLAGS.Ephemeral
         });
       }
 
@@ -673,7 +673,7 @@ const mainCommands = {
       await interaction.reply({
         content: '📋 Select an event:',
         components: [row],
-        flags: MessageFlags.Flags.Ephemeral
+        flags: MessageFlags.FLAGS.Ephemeral
       });
     }
   }
@@ -745,9 +745,30 @@ function isValidDate(dateString) {
   );
 }
 
+// Register slash commands
+async function registerCommands() {
+  const commands = Object.values(allCommands).map(cmd => cmd.data.toJSON());
+  const rest = new REST({ version: '10' }).setToken(CONFIG.DISCORD_TOKEN);
+  
+  try {
+    console.log('🔄 Registering slash commands...');
+    await rest.put(
+      Routes.applicationCommands(CONFIG.CLIENT_ID),
+      { body: commands }
+    );
+    console.log('✅ Slash commands registered successfully!');
+  } catch (error) {
+    console.error('❌ Failed to register commands:', error);
+  }
+}
+
 // Discord events
-client.on('ready', () => {
+client.on('ready', async () => {
   console.log(`🤖 Logged in as ${client.user.tag}`);
+  
+  // Register commands
+  await registerCommands();
+  
   console.log('\n🔄 Initialized Slash Commands:');
   Object.keys(allCommands).forEach(command => console.log(`   ⮕ /${command}`));
   console.log('\n📌 Channel Configurations:');
@@ -830,7 +851,7 @@ async function handleInteraction(interaction) {
         console.warn(`⚠️ Modal submit without event data: ${modalId}`);
         await interaction.reply({ 
           content: '❌ Event data not found', 
-          flags: MessageFlags.Flags.Ephemeral 
+          flags: MessageFlags.FLAGS.Ephemeral 
         });
         return;
       }
@@ -849,7 +870,7 @@ async function handleInteraction(interaction) {
     if (interaction.isRepliable() && !interaction.replied) {
       await interaction.reply({
         content: '❌ An error occurred while processing this interaction',
-        flags: MessageFlags.Flags.Ephemeral
+        flags: MessageFlags.FLAGS.Ephemeral
       });
     }
   }
@@ -941,7 +962,7 @@ async function processModalData(interaction, eventData) {
       if (isNaN(count) || count < 0) {
         await interaction.followUp({
           content: `❌ Invalid count for ${user.username}: "${countValue}". Must be a positive number.`,
-          flags: MessageFlags.Flags.Ephemeral
+          flags: MessageFlags.FLAGS.Ephemeral
         });
         allValid = false;
         break;
@@ -1095,7 +1116,7 @@ function setupDateCollector(interaction, eventName) {
       }
 
       await interaction.editReply({
-        content: `✅ Event: **${eventName}**\n📅 Date: **${dateInput}**\n\n🔹 Mention participants: (@user1 @user2...)`,
+        content: `✅ Event: ${eventName}\n📅 Date: ${dateInput}\n\n🔹 Mention participants: (@user1 @user2...)`,
         components: []
       });
       setupMentionCollector(interaction, eventName, dateInput);
@@ -1202,13 +1223,13 @@ async function processAttendance(eventName, date, users, sourceMessage, commandC
 
     await sourceMessage.reply({
       content: `✅ Attendance recorded for ${successful}/${users.size} users!\n📋 Posted in: <#${CONFIG.OUTPUT_CHANNEL_ID}>`,
-      flags: MessageFlags.Flags.Ephemeral
+      flags: MessageFlags.FLAGS.Ephemeral
     });
   } catch (error) {
     console.error('Attendance Processing Error:', error);
     await sourceMessage.reply({
       content: '❌ An error occurred while processing attendance',
-      flags: MessageFlags.Flags.Ephemeral
+      flags: MessageFlags.FLAGS.Ephemeral
     });
   }
 }

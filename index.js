@@ -16,7 +16,6 @@ const express = require('express');
 const mongoose = require('mongoose');
 const axios = require('axios');
 const path = require('path');
-const PQueue = require('p-queue');
 
 console.log('✅ Starting bot initialization...');
 
@@ -24,8 +23,25 @@ console.log('✅ Starting bot initialization...');
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// Create interaction queue
-const interactionQueue = new PQueue({ concurrency: 1 });
+// Simple interaction queue
+const interactionQueue = [];
+let isProcessing = false;
+
+async function processQueue() {
+  if (isProcessing || interactionQueue.length === 0) return;
+  
+  isProcessing = true;
+  const interaction = interactionQueue.shift();
+  
+  try {
+    await handleInteraction(interaction);
+  } catch (error) {
+    console.error('Queue Processing Error:', error);
+  } finally {
+    isProcessing = false;
+    processQueue();
+  }
+}
 
 // MongoDB Connection
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://meetvora1883:meetvora1883@discordbot.xkgfuaj.mongodb.net/?retryWrites=true&w=majority';
@@ -60,15 +76,15 @@ const Bonus = mongoose.model('Bonus', bonusSchema);
 // Event bonus configuration
 const EVENT_BONUS_CONFIG = {
   "Family raid (Attack)": { type: "fixed", amount: 15000 },
-  "Family raid (Protection)": { type: "fixed", amount: 5000 },
+  "Family raid (Protection)": { type: "fixed", amount: 15000 },
   "State Object": { type: "fixed", amount: 8000 },
   "Turf": { type: "fixed", amount: 0 },
-  "Store robbery": { type: "fixed", amount: 15000 },
-  "Caravan delivery": { type: "fixed", amount: 8000 },
+  "Store robbery": { type: "fixed", amount: 0 },
+  "Caravan delivery": { type: "fixed", amount: 0 },
   "Attacking Prison": { type: "fixed", amount: 0 },
   "ℍ𝕒𝕣𝕓𝕠𝕣 (battle for the docks)": { type: "per_action", action: "parachute", amount: 25000 },
   "𝕎𝕖𝕒𝕡𝕠𝕟𝕤 𝔽𝕒𝕔𝕥𝕠𝕣𝕪": { type: "per_kill", amount: 25000 },
-  "𝔻𝕣𝕦𝕘 𝕃𝕒𝕓": { type: "fixed", amount: 8000 },
+  "𝔻𝕣𝕦𝕘 𝕃𝕒𝕓": { type: "fixed", amount: 0 },
   "𝔽𝕒𝕔𝕥𝕠𝕣𝕪 𝕠𝕗 ℝℙ 𝕥𝕚𝕔𝕜𝕖𝕥𝕤": { type: "fixed", amount: 300000 },
   "𝔽𝕠𝕦𝕟𝕕𝕣𝕪": { type: "per_kill", amount: 20000 },
   "𝕄𝕒𝕝𝕝": { type: "fixed", amount: 75000 },
@@ -79,7 +95,7 @@ const EVENT_BONUS_CONFIG = {
   "𝕃𝕖𝕗𝕥𝕠𝕧𝕖𝕣 ℂ𝕠𝕞𝕡𝕠𝕟𝕖𝕟𝕥𝕤": { type: "fixed", amount: 0 },
   "ℝ𝕒𝕥𝕚𝕟𝕘 𝔹𝕒𝕥𝕥𝕝𝕖": { type: "per_kill", amount: 20000 },
   "𝔸𝕚𝕣𝕔𝕣𝕒𝕗𝕥 ℂ𝕒𝕣𝕣𝕚𝕖𝕣 (𝕠𝕟 𝕊𝕦𝕟𝕕𝕒𝕪)": { type: "per_action", action: "parachute", amount: 50000 },
-  "𝔹�𝕟𝕜 ℝ𝕠𝕓𝕓𝕖𝕣𝕪": { type: "fixed", amount: 35000 },
+  "𝔹𝕒𝕟𝕜 ℝ𝕠𝕓𝕓𝕖𝕣𝕪": { type: "fixed", amount: 35000 },
   "ℍ𝕠𝕥𝕖𝕝 𝕋𝕒𝕜𝕖𝕠𝕧𝕖𝕣": { type: "per_kill", amount: 20000 },
   "Family War": { type: "fixed", amount: 0 },
   "Money Printing Machine": { type: "fixed", amount: 0 },
@@ -382,13 +398,233 @@ const bonusCommands = {
           { name: '/addbonus', value: 'Add bonus to a user\nUsage: /addbonus @user amount [reason]' },
           { name: '/lessbonus', value: 'Deduct bonus from a user\nUsage: /lessbonus @user amount [reason]' },
           { name: '/bonuspaid', value: 'Mark bonus as paid\nUsage: /bonuspaid @user amount [reason]' },
-          { name: '/listbonus', value: 'List all bonus records' }
+          { name: '/listbonus', value: 'List all bonus records' },
+          { name: '/parachute', value: 'Record parachute collections\nUsage: /parachute user: @User count: Number date: DD/MM/YYYY event: EventName' },
+          { name: '/kills', value: 'Record kills\nUsage: /kills user: @User count: Number date: DD/MM/YYYY event: EventName' }
         );
       
       await interaction.reply({ 
         embeds: [embed], 
         flags: MessageFlags.Flags.Ephemeral 
       });
+    }
+  },
+  parachute: {
+    data: new SlashCommandBuilder()
+      .setName('parachute')
+      .setDescription('Record parachute collections for an event')
+      .addUserOption(option =>
+        option.setName('user')
+          .setDescription('The user to record for')
+          .setRequired(true))
+      .addIntegerOption(option =>
+        option.setName('count')
+          .setDescription('Number of parachutes collected')
+          .setRequired(true))
+      .addStringOption(option =>
+        option.setName('event')
+          .setDescription('Event name')
+          .setRequired(true))
+      .addStringOption(option =>
+        option.setName('date')
+          .setDescription('Event date (DD/MM/YYYY)')
+          .setRequired(true)),
+    async execute(interaction) {
+      if (!CONFIG.ADMIN_ROLE_IDS.some(roleId => interaction.member.roles.cache.has(roleId))) {
+        return interaction.reply({ 
+          content: '⛔ You lack permissions for this command.', 
+          flags: MessageFlags.Flags.Ephemeral 
+        });
+      }
+
+      const user = interaction.options.getUser('user');
+      const count = interaction.options.getInteger('count');
+      const eventName = interaction.options.getString('event');
+      const date = interaction.options.getString('date');
+
+      try {
+        // Get bonus config
+        const bonusConfig = EVENT_BONUS_CONFIG[eventName];
+        if (!bonusConfig || bonusConfig.type !== 'per_action' || bonusConfig.action !== 'parachute') {
+          return interaction.reply({
+            content: '❌ This event is not configured for parachute collections',
+            flags: MessageFlags.Flags.Ephemeral
+          });
+        }
+
+        // Calculate bonus
+        const bonusAmount = count * bonusConfig.amount;
+        
+        // Update bonus record
+        await updateBonus(
+          user.id,
+          user.username,
+          bonusAmount,
+          'add',
+          `${count} parachutes in ${eventName}`,
+          eventName,
+          date
+        );
+
+        // Save attendance record
+        await new Attendance({
+          eventName,
+          date,
+          userId: user.id,
+          username: user.username,
+          actionCount: count
+        }).save();
+
+        // Get bonus summary
+        let bonusRecord = await Bonus.findOne({ userId: user.id });
+        if (!bonusRecord) {
+          bonusRecord = {
+            totalBonus: 0,
+            paid: 0,
+            outstanding: 0
+          };
+        }
+
+        // Send DM to user
+        const dmEmbed = new EmbedBuilder()
+          .setColor(0x00FF00)
+          .setTitle('🪂 Parachute Bonus Added')
+          .setDescription(`You've earned $${bonusAmount} for parachute collections!`)
+          .addFields(
+            { name: 'Event', value: eventName, inline: true },
+            { name: 'Date', value: date, inline: true },
+            { name: 'Parachutes', value: count.toString(), inline: true },
+            { name: 'Bonus Amount', value: `$${bonusAmount}`, inline: true },
+            { name: 'Total Bonus', value: `$${bonusRecord.totalBonus + bonusAmount}`, inline: true },
+            { name: 'Outstanding', value: `$${bonusRecord.outstanding + bonusAmount}`, inline: true }
+          );
+
+        try {
+          await user.send({ embeds: [dmEmbed] });
+        } catch (dmError) {
+          console.log(`Failed to send DM to ${user.username}:`, dmError);
+        }
+
+        await interaction.reply({
+          content: `✅ Recorded ${count} parachutes for ${user.username} ($${bonusAmount} bonus)`,
+          flags: MessageFlags.Flags.Ephemeral
+        });
+      } catch (error) {
+        console.error('Parachute Command Error:', error);
+        await interaction.reply({
+          content: `❌ Failed to record parachutes: ${error.message}`,
+          flags: MessageFlags.Flags.Ephemeral
+        });
+      }
+    }
+  },
+  kills: {
+    data: new SlashCommandBuilder()
+      .setName('kills')
+      .setDescription('Record kills for an event')
+      .addUserOption(option =>
+        option.setName('user')
+          .setDescription('The user to record for')
+          .setRequired(true))
+      .addIntegerOption(option =>
+        option.setName('count')
+          .setDescription('Number of kills')
+          .setRequired(true))
+      .addStringOption(option =>
+        option.setName('event')
+          .setDescription('Event name')
+          .setRequired(true))
+      .addStringOption(option =>
+        option.setName('date')
+          .setDescription('Event date (DD/MM/YYYY)')
+          .setRequired(true)),
+    async execute(interaction) {
+      if (!CONFIG.ADMIN_ROLE_IDS.some(roleId => interaction.member.roles.cache.has(roleId))) {
+        return interaction.reply({ 
+          content: '⛔ You lack permissions for this command.', 
+          flags: MessageFlags.Flags.Ephemeral 
+        });
+      }
+
+      const user = interaction.options.getUser('user');
+      const count = interaction.options.getInteger('count');
+      const eventName = interaction.options.getString('event');
+      const date = interaction.options.getString('date');
+
+      try {
+        // Get bonus config
+        const bonusConfig = EVENT_BONUS_CONFIG[eventName];
+        if (!bonusConfig || bonusConfig.type !== 'per_kill') {
+          return interaction.reply({
+            content: '❌ This event is not configured for kill bonuses',
+            flags: MessageFlags.Flags.Ephemeral
+          });
+        }
+
+        // Calculate bonus
+        const bonusAmount = count * bonusConfig.amount;
+        
+        // Update bonus record
+        await updateBonus(
+          user.id,
+          user.username,
+          bonusAmount,
+          'add',
+          `${count} kills in ${eventName}`,
+          eventName,
+          date
+        );
+
+        // Save attendance record
+        await new Attendance({
+          eventName,
+          date,
+          userId: user.id,
+          username: user.username,
+          actionCount: count
+        }).save();
+
+        // Get bonus summary
+        let bonusRecord = await Bonus.findOne({ userId: user.id });
+        if (!bonusRecord) {
+          bonusRecord = {
+            totalBonus: 0,
+            paid: 0,
+            outstanding: 0
+          };
+        }
+
+        // Send DM to user
+        const dmEmbed = new EmbedBuilder()
+          .setColor(0xFF0000)
+          .setTitle('🔫 Kill Bonus Added')
+          .setDescription(`You've earned $${bonusAmount} for kills!`)
+          .addFields(
+            { name: 'Event', value: eventName, inline: true },
+            { name: 'Date', value: date, inline: true },
+            { name: 'Kills', value: count.toString(), inline: true },
+            { name: 'Bonus Amount', value: `$${bonusAmount}`, inline: true },
+            { name: 'Total Bonus', value: `$${bonusRecord.totalBonus + bonusAmount}`, inline: true },
+            { name: 'Outstanding', value: `$${bonusRecord.outstanding + bonusAmount}`, inline: true }
+          );
+
+        try {
+          await user.send({ embeds: [dmEmbed] });
+        } catch (dmError) {
+          console.log(`Failed to send DM to ${user.username}:`, dmError);
+        }
+
+        await interaction.reply({
+          content: `✅ Recorded ${count} kills for ${user.username} ($${bonusAmount} bonus)`,
+          flags: MessageFlags.Flags.Ephemeral
+        });
+      } catch (error) {
+        console.error('Kills Command Error:', error);
+        await interaction.reply({
+          content: `❌ Failed to record kills: ${error.message}`,
+          flags: MessageFlags.Flags.Ephemeral
+        });
+      }
     }
   }
 };
@@ -404,7 +640,7 @@ const mainCommands = {
         .setTitle('🆘 Slayers Family Attendance Bot Help')
         .setDescription('A bot to manage event attendance and POV submissions')
         .addFields(
-          { name: '📋 Commands', value: '/attendance - Record event attendance\n/help - Show this message\n/bonushelp - Show bonus commands' },
+          { name: '📋 Commands', value: '/attendance - Record event attendance\n/help - Show this message\n/bonushelp - Show bonus commands\n/parachute - Record parachute collections\n/kills - Record kills' },
           { name: '📝 Usage', value: '1. Use /attendance\n2. Select event\n3. Choose date\n4. Mention participants\n5. Provide counts for per-action events' }
         );
       await interaction.reply({ 
@@ -523,7 +759,8 @@ client.on('ready', () => {
 
 // Interaction handling with queue
 client.on('interactionCreate', interaction => {
-  interactionQueue.add(() => handleInteraction(interaction));
+  interactionQueue.push(interaction);
+  processQueue();
 });
 
 async function handleInteraction(interaction) {

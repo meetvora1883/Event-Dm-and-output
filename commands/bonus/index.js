@@ -5,7 +5,8 @@ const {
   StringSelectMenuBuilder,
   ModalBuilder,
   TextInputBuilder,
-  TextInputStyle
+  TextInputStyle,
+  MessageFlags
 } = require('discord.js');
 const mongoose = require('mongoose');
 
@@ -94,7 +95,7 @@ module.exports = {
       if (!CONFIG.ADMIN_ROLE_IDS.some(roleId => interaction.member.roles.cache.has(roleId))) {
         return interaction.reply({ 
           content: '⛔ You lack permissions for this command.', 
-          ephemeral: true 
+          flags: MessageFlags.FLAGS.Ephemeral
         });
       }
       
@@ -106,13 +107,13 @@ module.exports = {
         await updateBonus(user.id, user.username, amount, 'add', reason);
         await interaction.reply({ 
           content: `✅ Added $${amount} bonus to ${user.username} for: ${reason}`,
-          ephemeral: true
+          flags: MessageFlags.FLAGS.Ephemeral
         });
       } catch (error) {
         console.error('Add Bonus Error:', error);
         await interaction.reply({ 
           content: `❌ Failed to add bonus: ${error.message}`,
-          ephemeral: true
+          flags: MessageFlags.FLAGS.Ephemeral
         });
       }
     }
@@ -137,7 +138,7 @@ module.exports = {
       if (!CONFIG.ADMIN_ROLE_IDS.some(roleId => interaction.member.roles.cache.has(roleId))) {
         return interaction.reply({ 
           content: '⛔ You lack permissions for this command.', 
-          ephemeral: true 
+          flags: MessageFlags.FLAGS.Ephemeral
         });
       }
       
@@ -149,13 +150,13 @@ module.exports = {
         await updateBonus(user.id, user.username, amount, 'deduct', reason);
         await interaction.reply({ 
           content: `✅ Deducted $${amount} from ${user.username} for: ${reason}`,
-          ephemeral: true
+          flags: MessageFlags.FLAGS.Ephemeral
         });
       } catch (error) {
         console.error('Less Bonus Error:', error);
         await interaction.reply({ 
           content: `❌ Failed to deduct bonus: ${error.message}`,
-          ephemeral: true
+          flags: MessageFlags.FLAGS.Ephemeral
         });
       }
     }
@@ -180,7 +181,7 @@ module.exports = {
       if (!CONFIG.ADMIN_ROLE_IDS.some(roleId => interaction.member.roles.cache.has(roleId))) {
         return interaction.reply({ 
           content: '⛔ You lack permissions for this command.', 
-          ephemeral: true 
+          flags: MessageFlags.FLAGS.Ephemeral
         });
       }
       
@@ -210,13 +211,13 @@ module.exports = {
         
         await interaction.reply({ 
           content: `✅ Marked $${amount} as paid for ${user.username}`,
-          ephemeral: true
+          flags: MessageFlags.FLAGS.Ephemeral
         });
       } catch (error) {
         console.error('Bonus Paid Error:', error);
         await interaction.reply({ 
           content: `❌ Failed to mark bonus as paid: ${error.message}`,
-          ephemeral: true
+          flags: MessageFlags.FLAGS.Ephemeral
         });
       }
     }
@@ -229,7 +230,7 @@ module.exports = {
       if (!CONFIG.ADMIN_ROLE_IDS.some(roleId => interaction.member.roles.cache.has(roleId))) {
         return interaction.reply({ 
           content: '⛔ You lack permissions for this command.', 
-          ephemeral: true 
+          flags: MessageFlags.FLAGS.Ephemeral
         });
       }
       
@@ -239,7 +240,7 @@ module.exports = {
         if (bonuses.length === 0) {
           return interaction.reply({ 
             content: 'No bonus records found.', 
-            ephemeral: true 
+            flags: MessageFlags.FLAGS.Ephemeral
           });
         }
         
@@ -258,13 +259,13 @@ module.exports = {
         
         await interaction.reply({ 
           embeds: [embed], 
-          ephemeral: true 
+          flags: MessageFlags.FLAGS.Ephemeral
         });
       } catch (error) {
         console.error('List Bonus Error:', error);
         await interaction.reply({ 
           content: '❌ Failed to retrieve bonus records',
-          ephemeral: true
+          flags: MessageFlags.FLAGS.Ephemeral
         });
       }
     }
@@ -289,7 +290,7 @@ module.exports = {
       
       await interaction.reply({ 
         embeds: [embed], 
-        ephemeral: true 
+        flags: MessageFlags.FLAGS.Ephemeral
       });
     }
   },
@@ -317,7 +318,7 @@ module.exports = {
       if (!CONFIG.ADMIN_ROLE_IDS.some(roleId => interaction.member.roles.cache.has(roleId))) {
         return interaction.reply({ 
           content: '⛔ You lack permissions for this command.', 
-          ephemeral: true 
+          flags: MessageFlags.FLAGS.Ephemeral
         });
       }
 
@@ -332,7 +333,7 @@ module.exports = {
         if (!bonusConfig || bonusConfig.type !== 'per_action' || bonusConfig.action !== 'parachute') {
           return interaction.reply({
             content: '❌ This event is not configured for parachute collections',
-            ephemeral: true
+            flags: MessageFlags.FLAGS.Ephemeral
           });
         }
 
@@ -382,13 +383,13 @@ module.exports = {
 
         await interaction.reply({
           content: `✅ Recorded ${count} parachutes for ${user.username} ($${bonusAmount} bonus)`,
-          ephemeral: true
+          flags: MessageFlags.FLAGS.Ephemeral
         });
       } catch (error) {
         console.error('Parachute Command Error:', error);
         await interaction.reply({
           content: `❌ Failed to record parachutes: ${error.message}`,
-          ephemeral: true
+          flags: MessageFlags.FLAGS.Ephemeral
         });
       }
     }
@@ -417,7 +418,7 @@ module.exports = {
       if (!CONFIG.ADMIN_ROLE_IDS.some(roleId => interaction.member.roles.cache.has(roleId))) {
         return interaction.reply({ 
           content: '⛔ You lack permissions for this command.', 
-          ephemeral: true 
+          flags: MessageFlags.FLAGS.Ephemeral
         });
       }
 
@@ -432,7 +433,7 @@ module.exports = {
         if (!bonusConfig || bonusConfig.type !== 'per_kill') {
           return interaction.reply({
             content: '❌ This event is not configured for kill bonuses',
-            ephemeral: true
+            flags: MessageFlags.FLAGS.Ephemeral
           });
         }
 
@@ -482,13 +483,13 @@ module.exports = {
 
         await interaction.reply({
           content: `✅ Recorded ${count} kills for ${user.username} ($${bonusAmount} bonus)`,
-          ephemeral: true
+          flags: MessageFlags.FLAGS.Ephemeral
         });
       } catch (error) {
         console.error('Kills Command Error:', error);
         await interaction.reply({
           content: `❌ Failed to record kills: ${error.message}`,
-          ephemeral: true
+          flags: MessageFlags.FLAGS.Ephemeral
         });
       }
     }

@@ -5,27 +5,32 @@ const mongoose = require('mongoose');
 const axios = require('axios');
 const path = require('path');
 
+console.log('✅ Starting bot initialization...');
+
 // Initialize Express app
 const app = express();
 const PORT = process.env.PORT || 10000;
 
-// MongoDB Connection (modern syntax)
+// MongoDB Connection
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://meetvora1883:meetvora1883@discordbot.xkgfuaj.mongodb.net/?retryWrites=true&w=majority';
 
 mongoose.connect(MONGODB_URI)
   .then(() => console.log('✅ Connected to MongoDB'))
   .catch(err => console.error('❌ MongoDB connection error:', err));
 
-// Attendance Schema
-const attendanceSchema = new mongoose.Schema({
-  eventName: String,
-  date: String,
-  userId: String,
-  username: String,
-  timestamp: { type: Date, default: Date.now }
-});
+// Import bonus system
+const { 
+  addbonusCommand,
+  lessbonusCommand,
+  bonuspaidCommand,
+  listbonusCommand,
+  bonushelpCommand,
+  EVENT_BONUS_CONFIG,
+  INELIGIBLE_ROLES,
+  updateBonus
+} = require('./bonus');
 
-const Attendance = mongoose.model('Attendance', attendanceSchema);
+console.log('✅ Bonus system imported successfully');
 
 // Discord Client
 const client = new Client({
@@ -61,6 +66,29 @@ const EVENT_NAMES = [
   "Informal (Battle for business for unofficial organization)"
 ];
 
+// Attendance Schema
+const attendanceSchema = new mongoose.Schema({
+  eventName: String,
+  date: String,
+  userId: String,
+  username: String,
+  timestamp: { type: Date, default: Date.now }
+});
+
+const Attendance = mongoose.model('Attendance', attendanceSchema);
+console.log('✅ Database models initialized');
+
+// Register bonus commands
+const bonusCommands = [
+  addbonusCommand,
+  lessbonusCommand,
+  bonuspaidCommand,
+  listbonusCommand,
+  bonushelpCommand
+];
+
+console.log(`✅ Registered ${bonusCommands.length} bonus commands`);
+
 // Express Middleware
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -76,7 +104,8 @@ app.get('/api/status', (req, res) => {
     status: 'online',
     bot: client.readyAt ? 'connected' : 'connecting',
     mongo: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
-    uptime: process.uptime()
+    uptime: process.uptime(),
+    bonusSystem: 'active'
   });
 });
 
@@ -85,7 +114,7 @@ app.listen(PORT, () => {
   console.log(`🖥️ Server running on port ${PORT}`);
 });
 
-// Keepalive ping with axios
+// Keepalive ping
 setInterval(async () => {
   try {
     await axios.get(`http://localhost:${PORT}/api/status`);
@@ -128,6 +157,7 @@ client.on('ready', () => {
   console.log(`🤖 Logged in as ${client.user.tag}`);
   console.log(`📌 POV Channel: ${CONFIG.POV_CHANNEL_ID}`);
   console.log(`📌 Output Channel: ${CONFIG.OUTPUT_CHANNEL_ID}`);
+  console.log(`👑 Admin Roles: ${CONFIG.ADMIN_ROLE_IDS.join(', ')}`);
   client.user.setActivity('Slayers Family Events', { type: 'WATCHING' });
 });
 
@@ -136,13 +166,23 @@ client.on('interactionCreate', async interaction => {
   if (!interaction.isCommand()) return;
 
   try {
+    // Handle bonus commands first
+    for (const command of bonusCommands) {
+      if (interaction.commandName === command.data.name) {
+        console.log(`⚡ Handling bonus command: ${interaction.commandName}`);
+        await command.execute(interaction);
+        return;
+      }
+    }
+
+    // Original commands
     if (interaction.commandName === 'help') {
       const helpEmbed = new EmbedBuilder()
         .setColor(0x0099FF)
         .setTitle('🆘 Slayers Family Attendance Bot Help')
         .setDescription('A bot to manage event attendance and POV submissions')
         .addFields(
-          { name: '📋 Commands', value: '/attendance - Record event attendance\n/help - Show this message' },
+          { name: '📋 Commands', value: '/attendance - Record event attendance\n/help - Show this message\n/bonushelp - Show bonus commands' },
           { name: '📝 Usage', value: '1. Use /attendance\n2. Select event\n3. Choose date\n4. Mention participants' }
         );
       await interaction.reply({ embeds: [helpEmbed], ephemeral: true });
@@ -151,6 +191,7 @@ client.on('interactionCreate', async interaction => {
 
     if (interaction.commandName === 'attendance') {
       if (!CONFIG.ADMIN_ROLE_IDS.some(roleId => interaction.member.roles.cache.has(roleId))) {
+        console.log('⛔ User lacks permissions for attendance command');
         return interaction.reply({
           content: '⛔ You lack permissions for this command.',
           ephemeral: true
@@ -173,7 +214,7 @@ client.on('interactionCreate', async interaction => {
       });
     }
   } catch (error) {
-    console.error('Command Error:', error);
+    console.error('❌ Command Error:', error);
     if (!interaction.replied) {
       await interaction.reply({
         content: '❌ Command failed unexpectedly',
@@ -205,8 +246,9 @@ client.on('interactionCreate', async interaction => {
       content: `✅ Selected: **${eventName}**\n\n📅 Choose date option:`,
       components: [row]
     });
+    console.log(`📅 User selected event: ${eventName}`);
   } catch (error) {
-    console.error('Event Select Error:', error);
+    console.error('❌ Event Select Error:', error);
   }
 });
 
@@ -225,16 +267,18 @@ client.on('interactionCreate', async interaction => {
         content: `✅ Event: **${eventName}**\n📅 Date: **${tomorrow}** (tomorrow)\n\n🔹 Mention participants: (@user1 @user2...)`,
         components: []
       });
+      console.log(`📅 User selected tomorrow's date for ${eventName}`);
       setupMentionCollector(interaction, eventName, tomorrow);
     } else if (dateOption === 'custom') {
       await interaction.editReply({
         content: `✅ Event: **${eventName}**\n\n📅 Please enter a custom date (DD/MM/YYYY):`,
         components: []
       });
+      console.log(`📅 User requested custom date for ${eventName}`);
       setupDateCollector(interaction, eventName);
     }
   } catch (error) {
-    console.error('Date Select Error:', error);
+    console.error('❌ Date Select Error:', error);
   }
 });
 
@@ -259,10 +303,11 @@ function setupMentionCollector(interaction, eventName, date) {
         return;
       }
 
+      console.log(`👥 Processing ${users.size} mentioned users for ${eventName}`);
       await processAttendance(eventName, date, users, mentionMessage, interaction.channel);
       await mentionMessage.delete().catch(() => {});
     } catch (error) {
-      console.error('Mention Collector Error:', error);
+      console.error('❌ Mention Collector Error:', error);
     }
   });
 }
@@ -292,10 +337,11 @@ function setupDateCollector(interaction, eventName) {
         content: `✅ Event: **${eventName}**\n📅 Date: **${dateInput}**\n\n🔹 Mention participants: (@user1 @user2...)`,
         components: []
       });
+      console.log(`📅 User entered valid date: ${dateInput}`);
       setupMentionCollector(interaction, eventName, dateInput);
       await dateMessage.delete().catch(() => {});
     } catch (error) {
-      console.error('Date Collector Error:', error);
+      console.error('❌ Date Collector Error:', error);
     }
   });
 }
@@ -305,10 +351,12 @@ async function processAttendance(eventName, date, users, sourceMessage, commandC
     const outputChannel = sourceMessage.guild.channels.cache.get(CONFIG.OUTPUT_CHANNEL_ID);
     if (!outputChannel) throw new Error('Output channel not found');
 
+    console.log(`📝 Processing attendance for ${users.size} users for event: ${eventName}`);
+    
     // Save to MongoDB and send DMs
     const savePromises = Array.from(users.values()).map(async user => {
       try {
-        // Save to MongoDB
+        // Save attendance record
         const attendanceRecord = new Attendance({
           eventName,
           date,
@@ -316,8 +364,47 @@ async function processAttendance(eventName, date, users, sourceMessage, commandC
           username: user.username
         });
         await attendanceRecord.save();
+        console.log(`📝 Saved attendance for ${user.username}`);
 
-        // Send DM
+        // Get bonus summary for DM
+        let bonusRecord = await Bonus.findOne({ userId: user.id });
+        if (!bonusRecord) {
+          bonusRecord = new Bonus({
+            userId: user.id,
+            username: user.username,
+            totalBonus: 0,
+            paid: 0,
+            outstanding: 0,
+            transactions: []
+          });
+          console.log(`➕ Created new bonus record for ${user.username}`);
+        }
+
+        // Get member to check roles
+        const member = await sourceMessage.guild.members.fetch(user.id);
+        const isEligible = !INELIGIBLE_ROLES.some(roleId => member.roles.cache.has(roleId));
+        
+        // Check if event has bonus
+        const bonusConfig = EVENT_BONUS_CONFIG[eventName];
+        let eventBonus = 0;
+        let bonusNote = "No bonus for this event";
+        
+        if (bonusConfig && isEligible) {
+          if (bonusConfig.type === 'fixed') {
+            eventBonus = bonusConfig.amount;
+            await updateBonus(user.id, user.username, eventBonus, 'add', `Event: ${eventName}`);
+            bonusNote = `+$${eventBonus} for participation`;
+            console.log(`💰 Added $${eventBonus} bonus to ${user.username} for ${eventName}`);
+          } else {
+            bonusNote = `Bonus will be calculated later (${bonusConfig.type})`;
+            console.log(`ℹ️ Deferred bonus calculation for ${user.username} (${bonusConfig.type})`);
+          }
+        } else if (!isEligible) {
+          bonusNote = "Not eligible for bonus (role)";
+          console.log(`ℹ️ ${user.username} not eligible for bonus due to role`);
+        }
+
+        // Send DM with bonus info
         const dmEmbed = new EmbedBuilder()
           .setColor(0x0099FF)
           .setTitle('🎉 Event Attendance Recorded')
@@ -325,13 +412,16 @@ async function processAttendance(eventName, date, users, sourceMessage, commandC
           .addFields(
             { name: '📌 Event', value: `**${eventName}**`, inline: true },
             { name: '📅 Date', value: date, inline: true },
+            { name: '💰 Bonus', value: bonusNote, inline: false },
+            { name: '📊 Bonus Summary', value: `Total: $${bonusRecord.totalBonus + eventBonus}\nPaid: $${bonusRecord.paid}\nOutstanding: $${bonusRecord.outstanding + eventBonus}`, inline: false },
             { name: '📸 POV Submission', value: `Submit to: <#${CONFIG.POV_CHANNEL_ID}>\n\nFormat:\n\`\`\`\n"${eventName} | @${user.username}"\n"${date}"\n\`\`\`` }
           );
 
         await user.send({ embeds: [dmEmbed] });
+        console.log(`📩 Sent DM to ${user.username}`);
         return { user, success: true };
       } catch (error) {
-        console.error(`Failed to process ${user.tag}:`, error);
+        console.error(`❌ Failed to process ${user.tag}:`, error);
         return { user, success: false, error };
       }
     });
@@ -355,9 +445,9 @@ async function processAttendance(eventName, date, users, sourceMessage, commandC
       ephemeral: true
     });
 
-    console.log(`Processed attendance for ${successful} users for event ${eventName}`);
+    console.log(`✅ Processed attendance for ${successful} users for event ${eventName}`);
   } catch (error) {
-    console.error('Attendance Processing Error:', error);
+    console.error('❌ Attendance Processing Error:', error);
     await sourceMessage.reply({
       content: '❌ An error occurred while processing attendance',
       ephemeral: true
@@ -387,3 +477,5 @@ client.login(CONFIG.DISCORD_TOKEN).catch(error => {
   console.error('❌ Failed to login:', error);
   process.exit(1);
 });
+
+console.log('✅ All systems initialized - bot starting...');

@@ -1,78 +1,4 @@
-const { 
-  SlashCommandBuilder, 
-  EmbedBuilder,
-  ActionRowBuilder,
-  StringSelectMenuBuilder,
-  ModalBuilder,
-  TextInputBuilder,
-  TextInputStyle,
-  MessageFlags
-} = require('discord.js');
-const mongoose = require('mongoose');
-
-// Bonus Schema
-const bonusSchema = new mongoose.Schema({
-  userId: { type: String, required: true, unique: true },
-  username: { type: String, required: true },
-  totalBonus: { type: Number, default: 0 },
-  paid: { type: Number, default: 0 },
-  outstanding: { type: Number, default: 0 },
-  transactions: [{
-    amount: Number,
-    type: { type: String, enum: ['add', 'deduct', 'paid'], required: true },
-    reason: String,
-    event: String,
-    date: String,
-    timestamp: { type: Date, default: Date.now }
-  }]
-});
-
-const Bonus = mongoose.model('Bonus', bonusSchema);
-
-// Helper function to update bonus
-async function updateBonus(userId, username, amount, type, reason, eventName, date) {
-  let bonus = await Bonus.findOne({ userId });
-  
-  if (!bonus) {
-    bonus = new Bonus({ 
-      userId, 
-      username,
-      totalBonus: 0,
-      paid: 0,
-      outstanding: 0,
-      transactions: [] 
-    });
-  }
-  
-  let transaction;
-  
-  switch (type) {
-    case 'add':
-      bonus.totalBonus += amount;
-      bonus.outstanding += amount;
-      transaction = { amount, type, reason, event: eventName, date };
-      break;
-    case 'deduct':
-      bonus.totalBonus -= amount;
-      bonus.outstanding -= amount;
-      transaction = { amount: -amount, type, reason, event: eventName, date };
-      break;
-    case 'paid':
-      if (amount > bonus.outstanding) {
-        throw new Error('Amount exceeds outstanding bonus');
-      }
-      bonus.paid += amount;
-      bonus.outstanding -= amount;
-      transaction = { amount, type, reason, event: eventName, date };
-      break;
-    default:
-      throw new Error('Invalid transaction type');
-  }
-  
-  bonus.transactions.push(transaction);
-  await bonus.save();
-  return bonus;
-}
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 
 module.exports = {
   addbonus: {
@@ -91,11 +17,11 @@ module.exports = {
         option.setName('reason')
           .setDescription('Reason for adding bonus')
           .setRequired(false)),
-    async execute(interaction, { CONFIG }) {
+    async execute(interaction, { Bonus, updateBonus, CONFIG, MessageFlags }) {
       if (!CONFIG.ADMIN_ROLE_IDS.some(roleId => interaction.member.roles.cache.has(roleId))) {
         return interaction.reply({ 
           content: '⛔ You lack permissions for this command.', 
-          flags: MessageFlags.FLAGS.Ephemeral
+          ephemeral: true 
         });
       }
       
@@ -107,17 +33,18 @@ module.exports = {
         await updateBonus(user.id, user.username, amount, 'add', reason);
         await interaction.reply({ 
           content: `✅ Added $${amount} bonus to ${user.username} for: ${reason}`,
-          flags: MessageFlags.FLAGS.Ephemeral
+          ephemeral: true
         });
       } catch (error) {
         console.error('Add Bonus Error:', error);
         await interaction.reply({ 
           content: `❌ Failed to add bonus: ${error.message}`,
-          flags: MessageFlags.FLAGS.Ephemeral
+          ephemeral: true
         });
       }
     }
   },
+  
   lessbonus: {
     data: new SlashCommandBuilder()
       .setName('lessbonus')
@@ -134,11 +61,11 @@ module.exports = {
         option.setName('reason')
           .setDescription('Reason for deduction')
           .setRequired(false)),
-    async execute(interaction, { CONFIG }) {
+    async execute(interaction, { Bonus, updateBonus, CONFIG, MessageFlags }) {
       if (!CONFIG.ADMIN_ROLE_IDS.some(roleId => interaction.member.roles.cache.has(roleId))) {
         return interaction.reply({ 
           content: '⛔ You lack permissions for this command.', 
-          flags: MessageFlags.FLAGS.Ephemeral
+          ephemeral: true 
         });
       }
       
@@ -150,17 +77,18 @@ module.exports = {
         await updateBonus(user.id, user.username, amount, 'deduct', reason);
         await interaction.reply({ 
           content: `✅ Deducted $${amount} from ${user.username} for: ${reason}`,
-          flags: MessageFlags.FLAGS.Ephemeral
+          ephemeral: true
         });
       } catch (error) {
         console.error('Less Bonus Error:', error);
         await interaction.reply({ 
           content: `❌ Failed to deduct bonus: ${error.message}`,
-          flags: MessageFlags.FLAGS.Ephemeral
+          ephemeral: true
         });
       }
     }
   },
+  
   bonuspaid: {
     data: new SlashCommandBuilder()
       .setName('bonuspaid')
@@ -177,11 +105,11 @@ module.exports = {
         option.setName('reason')
           .setDescription('Payment reason')
           .setRequired(false)),
-    async execute(interaction, { CONFIG }) {
+    async execute(interaction, { Bonus, updateBonus, CONFIG, MessageFlags }) {
       if (!CONFIG.ADMIN_ROLE_IDS.some(roleId => interaction.member.roles.cache.has(roleId))) {
         return interaction.reply({ 
           content: '⛔ You lack permissions for this command.', 
-          flags: MessageFlags.FLAGS.Ephemeral
+          ephemeral: true 
         });
       }
       
@@ -211,26 +139,27 @@ module.exports = {
         
         await interaction.reply({ 
           content: `✅ Marked $${amount} as paid for ${user.username}`,
-          flags: MessageFlags.FLAGS.Ephemeral
+          ephemeral: true
         });
       } catch (error) {
         console.error('Bonus Paid Error:', error);
         await interaction.reply({ 
           content: `❌ Failed to mark bonus as paid: ${error.message}`,
-          flags: MessageFlags.FLAGS.Ephemeral
+          ephemeral: true
         });
       }
     }
   },
+  
   listbonus: {
     data: new SlashCommandBuilder()
       .setName('listbonus')
       .setDescription('List all bonus records'),
-    async execute(interaction, { CONFIG }) {
+    async execute(interaction, { Bonus, CONFIG, MessageFlags }) {
       if (!CONFIG.ADMIN_ROLE_IDS.some(roleId => interaction.member.roles.cache.has(roleId))) {
         return interaction.reply({ 
           content: '⛔ You lack permissions for this command.', 
-          flags: MessageFlags.FLAGS.Ephemeral
+          ephemeral: true 
         });
       }
       
@@ -240,7 +169,7 @@ module.exports = {
         if (bonuses.length === 0) {
           return interaction.reply({ 
             content: 'No bonus records found.', 
-            flags: MessageFlags.FLAGS.Ephemeral
+            ephemeral: true 
           });
         }
         
@@ -259,22 +188,23 @@ module.exports = {
         
         await interaction.reply({ 
           embeds: [embed], 
-          flags: MessageFlags.FLAGS.Ephemeral
+          ephemeral: true 
         });
       } catch (error) {
         console.error('List Bonus Error:', error);
         await interaction.reply({ 
           content: '❌ Failed to retrieve bonus records',
-          flags: MessageFlags.FLAGS.Ephemeral
+          ephemeral: true
         });
       }
     }
   },
+  
   bonushelp: {
     data: new SlashCommandBuilder()
       .setName('bonushelp')
       .setDescription('Show bonus commands help'),
-    async execute(interaction) {
+    async execute(interaction, { MessageFlags }) {
       const embed = new EmbedBuilder()
         .setColor(0x3498DB)
         .setTitle('🆘 Bonus Commands Help')
@@ -290,10 +220,11 @@ module.exports = {
       
       await interaction.reply({ 
         embeds: [embed], 
-        flags: MessageFlags.FLAGS.Ephemeral
+        ephemeral: true 
       });
     }
   },
+  
   parachute: {
     data: new SlashCommandBuilder()
       .setName('parachute')
@@ -314,11 +245,11 @@ module.exports = {
         option.setName('date')
           .setDescription('Event date (DD/MM/YYYY)')
           .setRequired(true)),
-    async execute(interaction, { CONFIG, EVENT_BONUS_CONFIG }) {
+    async execute(interaction, { Bonus, updateBonus, Attendance, EVENT_BONUS_CONFIG, CONFIG, MessageFlags }) {
       if (!CONFIG.ADMIN_ROLE_IDS.some(roleId => interaction.member.roles.cache.has(roleId))) {
         return interaction.reply({ 
           content: '⛔ You lack permissions for this command.', 
-          flags: MessageFlags.FLAGS.Ephemeral
+          ephemeral: true 
         });
       }
 
@@ -333,7 +264,7 @@ module.exports = {
         if (!bonusConfig || bonusConfig.type !== 'per_action' || bonusConfig.action !== 'parachute') {
           return interaction.reply({
             content: '❌ This event is not configured for parachute collections',
-            flags: MessageFlags.FLAGS.Ephemeral
+            ephemeral: true
           });
         }
 
@@ -350,6 +281,15 @@ module.exports = {
           eventName,
           date
         );
+
+        // Save attendance record
+        await new Attendance({
+          eventName,
+          date,
+          userId: user.id,
+          username: user.username,
+          actionCount: count
+        }).save();
 
         // Get bonus summary
         let bonusRecord = await Bonus.findOne({ userId: user.id });
@@ -383,17 +323,18 @@ module.exports = {
 
         await interaction.reply({
           content: `✅ Recorded ${count} parachutes for ${user.username} ($${bonusAmount} bonus)`,
-          flags: MessageFlags.FLAGS.Ephemeral
+          ephemeral: true
         });
       } catch (error) {
         console.error('Parachute Command Error:', error);
         await interaction.reply({
           content: `❌ Failed to record parachutes: ${error.message}`,
-          flags: MessageFlags.FLAGS.Ephemeral
+          ephemeral: true
         });
       }
     }
   },
+  
   kills: {
     data: new SlashCommandBuilder()
       .setName('kills')
@@ -414,11 +355,11 @@ module.exports = {
         option.setName('date')
           .setDescription('Event date (DD/MM/YYYY)')
           .setRequired(true)),
-    async execute(interaction, { CONFIG, EVENT_BONUS_CONFIG }) {
+    async execute(interaction, { Bonus, updateBonus, Attendance, EVENT_BONUS_CONFIG, CONFIG, MessageFlags }) {
       if (!CONFIG.ADMIN_ROLE_IDS.some(roleId => interaction.member.roles.cache.has(roleId))) {
         return interaction.reply({ 
           content: '⛔ You lack permissions for this command.', 
-          flags: MessageFlags.FLAGS.Ephemeral
+          ephemeral: true 
         });
       }
 
@@ -433,7 +374,7 @@ module.exports = {
         if (!bonusConfig || bonusConfig.type !== 'per_kill') {
           return interaction.reply({
             content: '❌ This event is not configured for kill bonuses',
-            flags: MessageFlags.FLAGS.Ephemeral
+            ephemeral: true
           });
         }
 
@@ -450,6 +391,15 @@ module.exports = {
           eventName,
           date
         );
+
+        // Save attendance record
+        await new Attendance({
+          eventName,
+          date,
+          userId: user.id,
+          username: user.username,
+          actionCount: count
+        }).save();
 
         // Get bonus summary
         let bonusRecord = await Bonus.findOne({ userId: user.id });
@@ -483,13 +433,13 @@ module.exports = {
 
         await interaction.reply({
           content: `✅ Recorded ${count} kills for ${user.username} ($${bonusAmount} bonus)`,
-          flags: MessageFlags.FLAGS.Ephemeral
+          ephemeral: true
         });
       } catch (error) {
         console.error('Kills Command Error:', error);
         await interaction.reply({
           content: `❌ Failed to record kills: ${error.message}`,
-          flags: MessageFlags.FLAGS.Ephemeral
+          ephemeral: true
         });
       }
     }

@@ -58,15 +58,15 @@ mongoose.connection.on('error', err => console.error('❌ MongoDB connection err
 // Event bonus configuration
 const EVENT_BONUS_CONFIG = {
   "Family raid (Attack)": { type: "fixed", amount: 15000 },
-  "Family raid (Protection)": { type: "fixed", amount: 5000 },
+  "Family raid (Protection)": { type: "fixed", amount: 15000 },
   "State Object": { type: "fixed", amount: 8000 },
   "Turf": { type: "fixed", amount: 0 },
-  "Store robbery": { type: "fixed", amount: 15000 },
-  "Caravan delivery": { type: "fixed", amount: 5000 },
-  "Attacking Prison": { type: "fixed", amount: 10000 },
+  "Store robbery": { type: "fixed", amount: 0 },
+  "Caravan delivery": { type: "fixed", amount: 0 },
+  "Attacking Prison": { type: "fixed", amount: 0 },
   "ℍ𝕒𝕣𝕓𝕠𝕣 (battle for the docks)": { type: "per_action", action: "parachute", amount: 25000 },
   "𝕎𝕖𝕒𝕡𝕠𝕟𝕤 𝔽𝕒𝕔𝕥𝕠𝕣𝕪": { type: "per_kill", amount: 25000 },
-  "𝔻𝕣𝕦𝕘 𝕃𝕒�": { type: "fixed", amount: 8000 },
+  "𝔻𝕣𝕦𝕘 𝕃𝕒𝕓": { type: "fixed", amount: 0 },
   "𝔽𝕒𝕔𝕥𝕠𝕣𝕪 𝕠𝕗 ℝℙ 𝕥𝕚𝕔𝕜𝕖𝕥𝕤": { type: "fixed", amount: 300000 },
   "𝔽𝕠𝕦𝕟𝕕𝕣𝕪": { type: "per_kill", amount: 20000 },
   "𝕄𝕒𝕝𝕝": { type: "fixed", amount: 75000 },
@@ -78,7 +78,7 @@ const EVENT_BONUS_CONFIG = {
   "ℝ𝕒𝕥𝕚𝕟𝕘 𝔹𝕒𝕥𝕥𝕝𝕖": { type: "per_kill", amount: 20000 },
   "𝔸𝕚𝕣𝕔𝕣𝕒𝕗𝕥 ℂ𝕒𝕣𝕣𝕚𝕖𝕣 (𝕠𝕟 𝕊𝕦𝕟𝕕𝕒𝕪)": { type: "per_action", action: "parachute", amount: 50000 },
   "𝔹𝕒𝕟𝕜 ℝ𝕠𝕓𝕓𝕖𝕣𝕪": { type: "fixed", amount: 35000 },
-  "ℍ𝕠𝕥𝕖𝕝 𝕋𝕒𝕜𝕖𝕠𝕧𝕖𝕣": { type: "per_kill", amount: 20000 },
+  "ℍ𝕠𝕥𝕖𝕝 𝕋𝕒𝕜𝕖𝕠𝕧𝕖�": { type: "per_kill", amount: 20000 },
   "Family War": { type: "fixed", amount: 0 },
   "Money Printing Machine": { type: "fixed", amount: 0 },
   "Informal (Battle for business for unofficial organization)": { type: "per_kill", amount: 50000 }
@@ -230,7 +230,8 @@ async function handleInteraction(interaction) {
         CONFIG,
         EVENT_BONUS_CONFIG,
         INELIGIBLE_ROLES,
-        EVENT_NAMES
+        EVENT_NAMES,
+        MessageFlags // Pass MessageFlags to commands
       });
       return;
     }

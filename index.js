@@ -4,10 +4,9 @@ const {
   GatewayIntentBits, 
   EmbedBuilder, 
   ActionRowBuilder, 
-  StringSelectMenuBuilder, 
-  SlashCommandBuilder, 
-  ModalBuilder, 
-  TextInputBuilder, 
+  StringSelectMenuBuilder,
+  ModalBuilder,
+  TextInputBuilder,
   TextInputStyle,
   REST,
   Routes,
@@ -17,6 +16,10 @@ const express = require('express');
 const mongoose = require('mongoose');
 const axios = require('axios');
 const path = require('path');
+
+// Import command handlers
+const bonusCommands = require('./commands/bonus');
+const attendanceCommands = require('./commands/attendance');
 
 console.log('✅ Starting bot initialization...');
 
@@ -55,6 +58,25 @@ mongoose.connect(MONGODB_URI)
 mongoose.connection.on('connected', () => console.log('✅ MongoDB connection established'));
 mongoose.connection.on('error', err => console.error('❌ MongoDB connection error:', err));
 
+// Bonus Schema
+const bonusSchema = new mongoose.Schema({
+  userId: { type: String, required: true, unique: true },
+  username: { type: String, required: true },
+  totalBonus: { type: Number, default: 0 },
+  paid: { type: Number, default: 0 },
+  outstanding: { type: Number, default: 0 },
+  transactions: [{
+    amount: Number,
+    type: { type: String, enum: ['add', 'deduct', 'paid'], required: true },
+    reason: String,
+    event: String,
+    date: String,
+    timestamp: { type: Date, default: Date.now }
+  }]
+});
+
+const Bonus = mongoose.model('Bonus', bonusSchema);
+
 // Event bonus configuration
 const EVENT_BONUS_CONFIG = {
   "Family raid (Attack)": { type: "fixed", amount: 15000 },
@@ -73,12 +95,12 @@ const EVENT_BONUS_CONFIG = {
   "𝔹𝕦𝕤𝕚𝕟𝕖𝕤𝕤 𝕎𝕒𝕣": { type: "per_kill", amount: 80000 },
   "𝕍𝕚𝕟𝕖𝕪𝕒𝕣𝕕": { type: "per_action", action: "harvest", amount: 20000 },
   "𝔸𝕥𝕥𝕒𝕔𝕜𝕚𝕟𝕘 ℙ𝕣𝕚𝕤𝕠𝕟 (𝕠𝕟 𝔽𝕣𝕚𝕕𝕒𝕪)": { type: "fixed", amount: 0 },
-  "𝕂𝕚𝕟𝕘 𝕆𝕗 ℂ𝕒𝕪𝕠 ℙ𝕖𝕣𝕚𝕔𝕠 𝕀𝕤𝕝𝕒𝕟𝕕 (𝕠𝕟 𝕎𝕖𝕕𝕟𝕖𝕤𝕕𝕒𝕪 𝕒𝕟𝕕 𝕊𝕦𝕟𝕕𝕒𝕪)": { type: "fixed", amount: 0 },
+  "𝕂𝕚�𝕘 𝕆𝕗 ℂ𝕒𝕪𝕠 ℙ𝕖𝕣𝕚𝕔𝕠 𝕀𝕤𝕝𝕒�𝕟𝕕 (𝕠𝕟 𝕎�𝕖𝕕𝕟𝕖𝕤𝕕𝕒𝕪 𝕒𝕟𝕕 𝕊𝕦𝕟𝕕𝕒𝕪)": { type: "fixed", amount: 0 },
   "𝕃𝕖𝕗𝕥𝕠𝕧𝕖𝕣 ℂ𝕠𝕞𝕡𝕠𝕟𝕖𝕟𝕥𝕤": { type: "fixed", amount: 0 },
   "ℝ𝕒𝕥𝕚𝕟𝕘 𝔹𝕒𝕥𝕥𝕝𝕖": { type: "per_kill", amount: 20000 },
   "𝔸𝕚𝕣𝕔𝕣𝕒𝕗𝕥 ℂ𝕒𝕣𝕣𝕚𝕖𝕣 (𝕠𝕟 𝕊𝕦𝕟𝕕𝕒𝕪)": { type: "per_action", action: "parachute", amount: 50000 },
   "𝔹𝕒𝕟𝕜 ℝ𝕠𝕓𝕓𝕖𝕣𝕪": { type: "fixed", amount: 35000 },
-  "ℍ𝕠𝕥𝕖𝕝 𝕋𝕒𝕜𝕖𝕠𝕧𝕖�": { type: "per_kill", amount: 20000 },
+  "ℍ𝕠𝕥𝕖𝕝 𝕋𝕒𝕜𝕖𝕠𝕧𝕖𝕣": { type: "per_kill", amount: 20000 },
   "Family War": { type: "fixed", amount: 0 },
   "Money Printing Machine": { type: "fixed", amount: 0 },
   "Informal (Battle for business for unofficial organization)": { type: "per_kill", amount: 50000 }
@@ -87,18 +109,17 @@ const EVENT_BONUS_CONFIG = {
 // Ineligible roles
 const INELIGIBLE_ROLES = process.env.INELIGIBLE_ROLES?.split(',') || [];
 
-// Event names
-const EVENT_NAMES = Object.keys(EVENT_BONUS_CONFIG);
+// Attendance Schema
+const attendanceSchema = new mongoose.Schema({
+  eventName: String,
+  date: String,
+  userId: String,
+  username: String,
+  timestamp: { type: Date, default: Date.now },
+  actionCount: Number
+});
 
-// Configuration
-const CONFIG = {
-  POV_CHANNEL_ID: process.env.POV_CHANNEL_ID || '1398888616532643860',
-  OUTPUT_CHANNEL_ID: process.env.OUTPUT_CHANNEL_ID || '1398888616532643861',
-  ADMIN_ROLE_IDS: process.env.ADMIN_ROLE_IDS?.split(',') || ['1398888612388540538', '1398888612388540537'],
-  COMMAND_CHANNEL_ID: process.env.COMMAND_CHANNEL_ID || '1398888617312518188',
-  DISCORD_TOKEN: process.env.DISCORD_TOKEN,
-  CLIENT_ID: process.env.CLIENT_ID || '1402002510885163058'
-};
+const Attendance = mongoose.model('Attendance', attendanceSchema);
 
 // Discord Client
 const client = new Client({
@@ -110,12 +131,63 @@ const client = new Client({
   ]
 });
 
-// Import command handlers
-const bonusCommands = require('./commands/bonus');
-const attendanceCommands = require('./commands/attendance');
+// Configuration
+const CONFIG = {
+  POV_CHANNEL_ID: process.env.POV_CHANNEL_ID || '1398888616532643860',
+  OUTPUT_CHANNEL_ID: process.env.OUTPUT_CHANNEL_ID || '1398888616532643861',
+  ADMIN_ROLE_IDS: process.env.ADMIN_ROLE_IDS?.split(',') || ['1398888612388540538', '1398888612388540537'],
+  COMMAND_CHANNEL_ID: process.env.COMMAND_CHANNEL_ID || '1398888617312518188',
+  DISCORD_TOKEN: process.env.DISCORD_TOKEN,
+  CLIENT_ID: process.env.CLIENT_ID || '1402002510885163058'
+};
 
-// Combine all commands
-const allCommands = {...bonusCommands, ...attendanceCommands};
+// Event names
+const EVENT_NAMES = Object.keys(EVENT_BONUS_CONFIG);
+
+// Helper function to update bonus
+async function updateBonus(userId, username, amount, type, reason, eventName, date) {
+  let bonus = await Bonus.findOne({ userId });
+  
+  if (!bonus) {
+    bonus = new Bonus({ 
+      userId, 
+      username,
+      totalBonus: 0,
+      paid: 0,
+      outstanding: 0,
+      transactions: [] 
+    });
+  }
+  
+  let transaction;
+  
+  switch (type) {
+    case 'add':
+      bonus.totalBonus += amount;
+      bonus.outstanding += amount;
+      transaction = { amount, type, reason, event: eventName, date };
+      break;
+    case 'deduct':
+      bonus.totalBonus -= amount;
+      bonus.outstanding -= amount;
+      transaction = { amount: -amount, type, reason, event: eventName, date };
+      break;
+    case 'paid':
+      if (amount > bonus.outstanding) {
+        throw new Error('Amount exceeds outstanding bonus');
+      }
+      bonus.paid += amount;
+      bonus.outstanding -= amount;
+      transaction = { amount, type, reason, event: eventName, date };
+      break;
+    default:
+      throw new Error('Invalid transaction type');
+  }
+  
+  bonus.transactions.push(transaction);
+  await bonus.save();
+  return bonus;
+}
 
 // Express Middleware
 app.use(express.json());
@@ -182,7 +254,11 @@ function isValidDate(dateString) {
 
 // Register slash commands
 async function registerCommands() {
-  const commands = Object.values(allCommands).map(cmd => cmd.data.toJSON());
+  const commands = [
+    ...Object.values(bonusCommands).map(cmd => cmd.data.toJSON()),
+    ...Object.values(attendanceCommands).map(cmd => cmd.data.toJSON())
+  ];
+  
   const rest = new REST({ version: '10' }).setToken(CONFIG.DISCORD_TOKEN);
   
   try {
@@ -205,7 +281,7 @@ client.on('ready', async () => {
   await registerCommands();
   
   console.log('\n🔄 Initialized Slash Commands:');
-  Object.keys(allCommands).forEach(command => console.log(`   ⮕ /${command}`));
+  Object.keys({...bonusCommands, ...attendanceCommands}).forEach(command => console.log(`   ⮕ /${command}`));
   console.log('\n📌 Channel Configurations:');
   console.log(`   POV Channel: ${CONFIG.POV_CHANNEL_ID}`);
   console.log(`   Output Channel: ${CONFIG.OUTPUT_CHANNEL_ID}`);
@@ -224,25 +300,63 @@ async function handleInteraction(interaction) {
     // Command handler
     if (interaction.isCommand()) {
       console.log(`⌨️ Command Received: /${interaction.commandName} by ${interaction.user.tag}`);
-      const command = allCommands[interaction.commandName];
-      if (command) await command.execute(interaction, {
-        client,
-        CONFIG,
-        EVENT_BONUS_CONFIG,
-        INELIGIBLE_ROLES,
-        EVENT_NAMES,
-        MessageFlags // Pass MessageFlags to commands
-      });
+      
+      // Check bonus commands
+      if (bonusCommands[interaction.commandName]) {
+        return await bonusCommands[interaction.commandName].execute(interaction, {
+          Bonus,
+          updateBonus,
+          CONFIG,
+          MessageFlags
+        });
+      }
+      
+      // Check attendance commands
+      if (attendanceCommands[interaction.commandName]) {
+        return await attendanceCommands[interaction.commandName].execute(interaction, {
+          EVENT_NAMES,
+          getTomorrowDate,
+          EVENT_BONUS_CONFIG,
+          INELIGIBLE_ROLES,
+          Attendance,
+          Bonus,
+          updateBonus,
+          CONFIG,
+          MessageFlags
+        });
+      }
+      
       return;
     }
 
-    // Other interaction types can be handled here
+    // Handle select menus and modals from attendance commands
+    if (interaction.isStringSelectMenu() || interaction.isModalSubmit()) {
+      return await attendanceCommands.handleComponents(interaction, {
+        EVENT_NAMES,
+        getTomorrowDate,
+        EVENT_BONUS_CONFIG,
+        INELIGIBLE_ROLES,
+        Attendance,
+        Bonus,
+        updateBonus,
+        CONFIG,
+        MessageFlags,
+        isValidDate,
+        formatDate,
+        EmbedBuilder,
+        ActionRowBuilder,
+        StringSelectMenuBuilder,
+        ModalBuilder,
+        TextInputBuilder,
+        TextInputStyle
+      });
+    }
   } catch (error) {
     console.error('❌ Interaction Handling Error:', error);
     if (interaction.isRepliable() && !interaction.replied) {
       await interaction.reply({
         content: '❌ An error occurred while processing this interaction',
-        flags: MessageFlags.FLAGS.Ephemeral
+        ephemeral: true
       });
     }
   }

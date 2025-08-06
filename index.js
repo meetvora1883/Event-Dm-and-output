@@ -1,25 +1,20 @@
 require('dotenv').config();
 const { 
   Client, 
-  GatewayIntentBits, 
-  EmbedBuilder, 
-  ActionRowBuilder, 
+  GatewayIntentBits,
+  EmbedBuilder,
+  ActionRowBuilder,
   StringSelectMenuBuilder,
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
   REST,
-  Routes,
-  MessageFlags
+  Routes
 } = require('discord.js');
 const express = require('express');
 const mongoose = require('mongoose');
 const axios = require('axios');
 const path = require('path');
-
-// Import command handlers
-const bonusCommands = require('./commands/bonus');
-const attendanceCommands = require('./commands/attendance');
 
 console.log('✅ Starting bot initialization...');
 
@@ -95,7 +90,7 @@ const EVENT_BONUS_CONFIG = {
   "𝔹𝕦𝕤𝕚𝕟𝕖𝕤𝕤 𝕎𝕒𝕣": { type: "per_kill", amount: 80000 },
   "𝕍𝕚𝕟𝕖𝕪𝕒𝕣𝕕": { type: "per_action", action: "harvest", amount: 20000 },
   "𝔸𝕥𝕥𝕒𝕔𝕜𝕚𝕟𝕘 ℙ𝕣𝕚𝕤𝕠𝕟 (𝕠𝕟 𝔽𝕣𝕚𝕕𝕒𝕪)": { type: "fixed", amount: 0 },
-  "𝕂𝕚�𝕘 𝕆𝕗 ℂ𝕒𝕪𝕠 ℙ𝕖𝕣𝕚𝕔𝕠 𝕀𝕤𝕝𝕒�𝕟𝕕 (𝕠𝕟 𝕎�𝕖𝕕𝕟𝕖𝕤𝕕𝕒𝕪 𝕒𝕟𝕕 𝕊𝕦𝕟𝕕𝕒𝕪)": { type: "fixed", amount: 0 },
+  "𝕂𝕚𝕟𝕘 𝕆𝕗 ℂ𝕒𝕪𝕠 ℙ𝕖𝕣𝕚𝕔𝕠 𝕀𝕤𝕝𝕒𝕟𝕕 (𝕠𝕟 𝕎𝕖𝕕𝕟𝕖𝕤𝕕𝕒𝕪 𝕒𝕟𝕕 𝕊𝕦𝕟𝕕𝕒𝕪)": { type: "fixed", amount: 0 },
   "𝕃𝕖𝕗𝕥𝕠𝕧𝕖𝕣 ℂ𝕠𝕞𝕡𝕠𝕟𝕖𝕟𝕥𝕤": { type: "fixed", amount: 0 },
   "ℝ𝕒𝕥𝕚𝕟𝕘 𝔹𝕒𝕥𝕥𝕝𝕖": { type: "per_kill", amount: 20000 },
   "𝔸𝕚𝕣𝕔𝕣𝕒𝕗𝕥 ℂ𝕒𝕣𝕣𝕚𝕖𝕣 (𝕠𝕟 𝕊𝕦𝕟𝕕𝕒𝕪)": { type: "per_action", action: "parachute", amount: 50000 },
@@ -189,6 +184,16 @@ async function updateBonus(userId, username, amount, type, reason, eventName, da
   return bonus;
 }
 
+// Import commands
+const bonusCommands = require('./commands/bonus');
+const attendanceCommand = require('./commands/attendance');
+
+// Combine all commands
+const allCommands = {
+  ...bonusCommands,
+  attendance: attendanceCommand
+};
+
 // Express Middleware
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -254,11 +259,7 @@ function isValidDate(dateString) {
 
 // Register slash commands
 async function registerCommands() {
-  const commands = [
-    ...Object.values(bonusCommands).map(cmd => cmd.data.toJSON()),
-    ...Object.values(attendanceCommands).map(cmd => cmd.data.toJSON())
-  ];
-  
+  const commands = Object.values(allCommands).map(cmd => cmd.data.toJSON());
   const rest = new REST({ version: '10' }).setToken(CONFIG.DISCORD_TOKEN);
   
   try {
@@ -281,7 +282,7 @@ client.on('ready', async () => {
   await registerCommands();
   
   console.log('\n🔄 Initialized Slash Commands:');
-  Object.keys({...bonusCommands, ...attendanceCommands}).forEach(command => console.log(`   ⮕ /${command}`));
+  Object.keys(allCommands).forEach(command => console.log(`   ⮕ /${command}`));
   console.log('\n📌 Channel Configurations:');
   console.log(`   POV Channel: ${CONFIG.POV_CHANNEL_ID}`);
   console.log(`   Output Channel: ${CONFIG.OUTPUT_CHANNEL_ID}`);
@@ -300,65 +301,474 @@ async function handleInteraction(interaction) {
     // Command handler
     if (interaction.isCommand()) {
       console.log(`⌨️ Command Received: /${interaction.commandName} by ${interaction.user.tag}`);
-      
-      // Check bonus commands
-      if (bonusCommands[interaction.commandName]) {
-        return await bonusCommands[interaction.commandName].execute(interaction, {
+      const command = allCommands[interaction.commandName];
+      if (command) {
+        await command.execute(interaction, {
           Bonus,
-          updateBonus,
-          CONFIG,
-          MessageFlags
-        });
-      }
-      
-      // Check attendance commands
-      if (attendanceCommands[interaction.commandName]) {
-        return await attendanceCommands[interaction.commandName].execute(interaction, {
-          EVENT_NAMES,
-          getTomorrowDate,
+          Attendance,
           EVENT_BONUS_CONFIG,
           INELIGIBLE_ROLES,
-          Attendance,
-          Bonus,
-          updateBonus,
           CONFIG,
-          MessageFlags
+          EVENT_NAMES,
+          updateBonus,
+          formatDate,
+          getTomorrowDate,
+          isValidDate
         });
       }
-      
       return;
     }
 
-    // Handle select menus and modals from attendance commands
-    if (interaction.isStringSelectMenu() || interaction.isModalSubmit()) {
-      return await attendanceCommands.handleComponents(interaction, {
-        EVENT_NAMES,
-        getTomorrowDate,
-        EVENT_BONUS_CONFIG,
-        INELIGIBLE_ROLES,
-        Attendance,
-        Bonus,
-        updateBonus,
-        CONFIG,
-        MessageFlags,
-        isValidDate,
-        formatDate,
-        EmbedBuilder,
-        ActionRowBuilder,
-        StringSelectMenuBuilder,
-        ModalBuilder,
-        TextInputBuilder,
-        TextInputStyle
+    // Event selection handler
+    if (interaction.isStringSelectMenu() && interaction.customId === 'event-select') {
+      console.log(`📋 Event selected: ${interaction.values[0]} by ${interaction.user.tag}`);
+      await interaction.deferUpdate();
+      const eventName = interaction.values[0];
+      const tomorrow = getTomorrowDate();
+
+      const dateSelect = new StringSelectMenuBuilder()
+        .setCustomId('date-select')
+        .setPlaceholder('Choose date option')
+        .addOptions([
+          { label: `Tomorrow (${tomorrow})`, value: 'tomorrow' },
+          { label: 'Custom date', value: 'custom' }
+        ]);
+
+      const row = new ActionRowBuilder().addComponents(dateSelect);
+      await interaction.editReply({
+        content: `✅ Selected: **${eventName}**\n\n📅 Choose date option:`,
+        components: [row]
+      });
+      return;
+    }
+
+    // Date selection handler
+    if (interaction.isStringSelectMenu() && interaction.customId === 'date-select') {
+      const dateOption = interaction.values[0];
+      const eventName = interaction.message.content.match(/\*\*(.*?)\*\*/)[1];
+      console.log(`📅 Date option selected: ${dateOption} for ${eventName} by ${interaction.user.tag}`);
+
+      await interaction.deferUpdate();
+      
+      if (dateOption === 'tomorrow') {
+        const tomorrow = getTomorrowDate();
+        await interaction.editReply({
+          content: `✅ Event: **${eventName}**\n📅 Date: **${tomorrow}** (tomorrow)\n\n🔹 Mention participants: (@user1 @user2...)`,
+          components: []
+        });
+        setupMentionCollector(interaction, eventName, tomorrow);
+      } else if (dateOption === 'custom') {
+        await interaction.editReply({
+          content: `✅ Event: **${eventName}**\n\n📅 Please enter a custom date (DD/MM/YYYY):`,
+          components: []
+        });
+        setupDateCollector(interaction, eventName);
+      }
+      return;
+    }
+
+    // Modal submission handler
+    if (interaction.isModalSubmit()) {
+      const modalId = interaction.customId;
+      const eventData = client.eventData?.[modalId];
+      
+      if (!eventData) {
+        console.warn(`⚠️ Modal submit without event data: ${modalId}`);
+        await interaction.reply({ 
+          content: '❌ Event data not found', 
+          ephemeral: true 
+        });
+        return;
+      }
+      
+      console.log(`📊 Modal submitted for ${eventData.eventName} by ${interaction.user.tag}`);
+      
+      // Delete stored event data
+      delete client.eventData[modalId];
+      
+      // Process asynchronously after deferring
+      await interaction.deferReply({ ephemeral: true });
+      await processModalData(interaction, eventData);
+    }
+
+    // Button interactions
+    if (interaction.isButton()) {
+      console.log(`🔘 Button interaction: ${interaction.customId} by ${interaction.user.tag}`);
+      await interaction.reply({
+        content: 'Button functionality not yet implemented',
+        ephemeral: true
       });
     }
+
   } catch (error) {
     console.error('❌ Interaction Handling Error:', error);
     if (interaction.isRepliable() && !interaction.replied) {
       await interaction.reply({
         content: '❌ An error occurred while processing this interaction',
         ephemeral: true
+      }).catch(err => console.error('Failed to send error reply:', err));
+    }
+  }
+}
+
+// Helper function to setup mention collector
+function setupMentionCollector(interaction, eventName, date) {
+  const mentionFilter = m => m.author.id === interaction.user.id;
+  const mentionCollector = interaction.channel.createMessageCollector({
+    filter: mentionFilter,
+    time: 30000,
+    max: 1
+  });
+
+  mentionCollector.on('collect', async mentionMessage => {
+    try {
+      const users = mentionMessage.mentions.users;
+      if (users.size === 0) {
+        const reply = await mentionMessage.reply({
+          content: '❌ Please mention at least one user',
+          allowedMentions: { parse: [] }
+        });
+        setTimeout(() => reply.delete(), 3000);
+        return;
+      }
+
+      // Check if event requires per-action counts
+      const bonusConfig = EVENT_BONUS_CONFIG[eventName];
+      if (bonusConfig && (bonusConfig.type === 'per_kill' || bonusConfig.type === 'per_action')) {
+        // Store user data for later processing
+        const eventData = {
+          eventName,
+          date,
+          users: Array.from(users.values()),
+          sourceMessage: mentionMessage,
+          channel: interaction.channel
+        };
+        
+        // Create modal to collect counts
+        const modal = new ModalBuilder()
+          .setCustomId(`action-count-modal-${Date.now()}`)
+          .setTitle(`Counts for ${eventName}`);
+        
+        // Add input fields for each user
+        users.forEach((user, index) => {
+          const actionLabel = bonusConfig.type === 'per_kill' ? 'Kills' : bonusConfig.action;
+          const input = new TextInputBuilder()
+            .setCustomId(`user-${user.id}`)
+            .setLabel(`${user.username} ${actionLabel}`)
+            .setStyle(TextInputStyle.Short)
+            .setPlaceholder(`Enter count for ${user.username}`)
+            .setRequired(true);
+          
+          modal.addComponents(new ActionRowBuilder().addComponents(input));
+        });
+        
+        // Show the modal
+        await interaction.showModal(modal);
+        
+        // Store event data for modal submit handler
+        client.eventData = client.eventData || {};
+        client.eventData[modal.data.custom_id] = eventData;
+      } else {
+        // Process directly for fixed bonuses
+        await processAttendance(eventName, date, users, mentionMessage, interaction.channel);
+      }
+      
+      await mentionMessage.delete().catch(() => {});
+    } catch (error) {
+      console.error('Mention Collector Error:', error);
+    }
+  });
+}
+
+// Helper function to setup date collector
+function setupDateCollector(interaction, eventName) {
+  const dateFilter = m => m.author.id === interaction.user.id;
+  const dateCollector = interaction.channel.createMessageCollector({
+    filter: dateFilter,
+    time: 30000,
+    max: 1
+  });
+
+  dateCollector.on('collect', async dateMessage => {
+    try {
+      const dateInput = dateMessage.content.trim();
+      if (!isValidDate(dateInput)) {
+        const reply = await dateMessage.reply({
+          content: '❌ Invalid date format. Please use DD/MM/YYYY',
+          allowedMentions: { parse: [] }
+        });
+        setTimeout(() => reply.delete(), 5000);
+        await dateMessage.delete().catch(() => {});
+        return;
+      }
+
+      await interaction.editReply({
+        content: `✅ Event: ${eventName}\n📅 Date: ${dateInput}\n\n🔹 Mention participants: (@user1 @user2...)`,
+        components: []
+      });
+      setupMentionCollector(interaction, eventName, dateInput);
+      await dateMessage.delete().catch(() => {});
+    } catch (error) {
+      console.error('Date Collector Error:', error);
+    }
+  });
+}
+
+// Process modal data from attendance collection
+async function processModalData(interaction, eventData) {
+  try {
+    const { eventName, date, users, sourceMessage, channel } = eventData;
+    const bonusConfig = EVENT_BONUS_CONFIG[eventName];
+    const actionLabel = bonusConfig.type === 'per_kill' ? 'kills' : bonusConfig.action;
+    
+    // Collect counts from modal
+    const userCounts = new Map();
+    let allValid = true;
+    
+    for (const user of users) {
+      const countValue = interaction.fields.getTextInputValue(`user-${user.id}`);
+      const count = parseInt(countValue);
+      
+      if (isNaN(count) || count < 0) {
+        await interaction.followUp({
+          content: `❌ Invalid count for ${user.username}: "${countValue}". Must be a positive number.`,
+          ephemeral: true
+        });
+        allValid = false;
+        break;
+      }
+      
+      userCounts.set(user.id, count);
+    }
+    
+    if (!allValid) return;
+    
+    // Process attendance with counts
+    const results = [];
+    
+    for (const user of users) {
+      try {
+        const count = userCounts.get(user.id) || 0;
+        
+        // Save attendance record with count
+        const attendanceRecord = new Attendance({
+          eventName,
+          date,
+          userId: user.id,
+          username: user.username,
+          actionCount: count
+        });
+        await attendanceRecord.save();
+
+        // Get bonus summary for DM
+        let bonusRecord = await Bonus.findOne({ userId: user.id });
+        if (!bonusRecord) {
+          bonusRecord = new Bonus({
+            userId: user.id,
+            username: user.username,
+            totalBonus: 0,
+            paid: 0,
+            outstanding: 0,
+            transactions: []
+          });
+        }
+
+        // Get member to check roles
+        const member = await sourceMessage.guild.members.fetch(user.id);
+        const isEligible = !INELIGIBLE_ROLES.some(roleId => member.roles.cache.has(roleId));
+        
+        // Calculate bonus
+        let eventBonus = 0;
+        let bonusNote = "No bonus for this event";
+        
+        if (bonusConfig && isEligible) {
+          if (bonusConfig.type === 'per_kill' || bonusConfig.type === 'per_action') {
+            eventBonus = count * bonusConfig.amount;
+            await updateBonus(
+              user.id, 
+              user.username, 
+              eventBonus, 
+              'add', 
+              `${count} ${actionLabel} in ${eventName}`,
+              eventName,
+              date
+            );
+            bonusNote = `+$${eventBonus} for ${count} ${actionLabel}`;
+          } else if (bonusConfig.type === 'fixed') {
+            eventBonus = bonusConfig.amount;
+            await updateBonus(
+              user.id, 
+              user.username, 
+              eventBonus, 
+              'add', 
+              `Participation in ${eventName}`,
+              eventName,
+              date
+            );
+            bonusNote = `+$${eventBonus} for participation`;
+          }
+        } else if (!isEligible) {
+          bonusNote = "Not eligible for bonus (role)";
+        }
+
+        // Send DM with bonus info
+        const dmEmbed = new EmbedBuilder()
+          .setColor(0x0099FF)
+          .setTitle('🎉 Event Attendance Recorded')
+          .setDescription('Thank you for participating!')
+          .addFields(
+            { name: '📌 Event', value: `**${eventName}**`, inline: true },
+            { name: '📅 Date', value: date, inline: true },
+            { name: '💰 Bonus', value: bonusNote, inline: false },
+            { name: '📊 Bonus Summary', value: `Total: $${bonusRecord.totalBonus + eventBonus}\nPaid: $${bonusRecord.paid}\nOutstanding: $${bonusRecord.outstanding + eventBonus}`, inline: false },
+            { name: '📸 POV Submission', value: `Submit to: <#${CONFIG.POV_CHANNEL_ID}>\n\nFormat:\n\`\`\`\n"${eventName} | @${user.username}"\n"${date}"\n\`\`\`` }
+          );
+
+        await user.send({ embeds: [dmEmbed] });
+        results.push({ user, success: true });
+      } catch (error) {
+        console.error(`Failed to process ${user.tag}:`, error);
+        results.push({ user, success: false, error });
+      }
+    }
+
+    const successful = results.filter(r => r.success).length;
+
+    // Send to output channel
+    const outputChannel = sourceMessage.guild.channels.cache.get(CONFIG.OUTPUT_CHANNEL_ID);
+    if (outputChannel) {
+      const participantList = results
+        .filter(r => r.success)
+        .map(({ user }) => {
+          const count = userCounts.get(user.id) || 0;
+          return `• <@${user.id}> (${user.username}) - ${count} ${actionLabel}`;
+        })
+        .join('\n');
+
+      await outputChannel.send({
+        content: `**${eventName} - Attendance**\n**Date:** ${date}\n\n${participantList}`,
+        allowedMentions: { users: Array.from(users.map(u => u.id)) }
       });
     }
+
+    await interaction.editReply({
+      content: `✅ Attendance recorded for ${successful}/${users.length} users!${
+        outputChannel ? `\n📋 Posted in: <#${CONFIG.OUTPUT_CHANNEL_ID}>` : ''
+      }`
+    });
+  } catch (error) {
+    console.error('Modal Processing Error:', error);
+    await interaction.editReply({
+      content: '❌ An error occurred while processing counts',
+    });
+  }
+}
+
+// Process attendance for fixed bonus events
+async function processAttendance(eventName, date, users, sourceMessage, commandChannel) {
+  try {
+    const outputChannel = sourceMessage.guild.channels.cache.get(CONFIG.OUTPUT_CHANNEL_ID);
+    if (!outputChannel) throw new Error('Output channel not found');
+
+    // Save to MongoDB and send DMs
+    const savePromises = Array.from(users.values()).map(async user => {
+      try {
+        // Save attendance record
+        const attendanceRecord = new Attendance({
+          eventName,
+          date,
+          userId: user.id,
+          username: user.username
+        });
+        await attendanceRecord.save();
+
+        // Get bonus summary for DM
+        let bonusRecord = await Bonus.findOne({ userId: user.id });
+        if (!bonusRecord) {
+          bonusRecord = new Bonus({
+            userId: user.id,
+            username: user.username,
+            totalBonus: 0,
+            paid: 0,
+            outstanding: 0,
+            transactions: []
+          });
+        }
+
+        // Get member to check roles
+        const member = await sourceMessage.guild.members.fetch(user.id);
+        const isEligible = !INELIGIBLE_ROLES.some(roleId => member.roles.cache.has(roleId));
+        
+        // Check if event has bonus
+        const bonusConfig = EVENT_BONUS_CONFIG[eventName];
+        let eventBonus = 0;
+        let bonusNote = "No bonus for this event";
+        
+        if (bonusConfig && isEligible) {
+          if (bonusConfig.type === 'fixed') {
+            eventBonus = bonusConfig.amount;
+            await updateBonus(
+              user.id, 
+              user.username, 
+              eventBonus, 
+              'add', 
+              `Participation in ${eventName}`,
+              eventName,
+              date
+            );
+            bonusNote = `+$${eventBonus} for participation`;
+          } else {
+            bonusNote = `Bonus will be calculated later (${bonusConfig.type})`;
+          }
+        } else if (!isEligible) {
+          bonusNote = "Not eligible for bonus (role)";
+        }
+
+        // Send DM with bonus info
+        const dmEmbed = new EmbedBuilder()
+          .setColor(0x0099FF)
+          .setTitle('🎉 Event Attendance Recorded')
+          .setDescription('Thank you for participating!')
+          .addFields(
+            { name: '📌 Event', value: `**${eventName}**`, inline: true },
+            { name: '📅 Date', value: date, inline: true },
+            { name: '💰 Bonus', value: bonusNote, inline: false },
+            { name: '📊 Bonus Summary', value: `Total: $${bonusRecord.totalBonus + eventBonus}\nPaid: $${bonusRecord.paid}\nOutstanding: $${bonusRecord.outstanding + eventBonus}`, inline: false },
+            { name: '📸 POV Submission', value: `Submit to: <#${CONFIG.POV_CHANNEL_ID}>\n\nFormat:\n\`\`\`\n"${eventName} | @${user.username}"\n"${date}"\n\`\`\`` }
+          );
+
+        await user.send({ embeds: [dmEmbed] });
+        return { user, success: true };
+      } catch (error) {
+        console.error(`Failed to process ${user.tag}:`, error);
+        return { user, success: false, error };
+      }
+    });
+
+    const results = await Promise.all(savePromises);
+    const successful = results.filter(r => r.success).length;
+
+    // Send to output channel
+    const participantList = results
+      .filter(r => r.success)
+      .map(({ user }) => `• <@${user.id}> (${user.username})`)
+      .join('\n');
+
+    await outputChannel.send({
+      content: `**${eventName} - Attendance**\n**Date:** ${date}\n\n${participantList}`,
+      allowedMentions: { users: Array.from(users.keys()) }
+    });
+
+    await sourceMessage.reply({
+      content: `✅ Attendance recorded for ${successful}/${users.size} users!\n📋 Posted in: <#${CONFIG.OUTPUT_CHANNEL_ID}>`,
+      ephemeral: true
+    });
+  } catch (error) {
+    console.error('Attendance Processing Error:', error);
+    await sourceMessage.reply({
+      content: '❌ An error occurred while processing attendance',
+      ephemeral: true
+    });
   }
 }
 

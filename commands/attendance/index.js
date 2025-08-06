@@ -2,11 +2,7 @@ const {
   SlashCommandBuilder, 
   EmbedBuilder,
   ActionRowBuilder,
-  StringSelectMenuBuilder,
-  ModalBuilder,
-  TextInputBuilder,
-  TextInputStyle,
-  MessageFlags
+  StringSelectMenuBuilder
 } = require('discord.js');
 const mongoose = require('mongoose');
 
@@ -27,7 +23,7 @@ module.exports = {
     data: new SlashCommandBuilder()
       .setName('help')
       .setDescription('Show bot help'),
-    async execute(interaction, { CONFIG }) {
+    async execute(interaction, { MessageFlags }) {
       const helpEmbed = new EmbedBuilder()
         .setColor(0x0099FF)
         .setTitle('🆘 Slayers Family Attendance Bot Help')
@@ -46,7 +42,7 @@ module.exports = {
     data: new SlashCommandBuilder()
       .setName('attendance')
       .setDescription('Record event attendance'),
-    async execute(interaction, { CONFIG, EVENT_NAMES }) {
+    async execute(interaction, { CONFIG, EVENT_NAMES, MessageFlags }) {
       if (!CONFIG.ADMIN_ROLE_IDS.some(roleId => interaction.member.roles.cache.has(roleId))) {
         return interaction.reply({
           content: '⛔ You lack permissions for this command.',

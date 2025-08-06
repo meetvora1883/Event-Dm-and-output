@@ -18,7 +18,7 @@ mongoose.connect(MONGODB_URI)
   .then(() => console.log('✅ Connected to MongoDB'))
   .catch(err => console.error('❌ MongoDB connection error:', err));
 
-// Bonus Schema and Model
+// Bonus Schema
 const bonusSchema = new mongoose.Schema({
   userId: { type: String, required: true, unique: true },
   username: { type: String, required: true },
@@ -575,4 +575,4 @@ function setupDateCollector(interaction, eventName) {
       const dateInput = dateMessage.content.trim();
       if (!isValidDate(dateInput)) {
         const reply = await dateMessage.reply({
-    
+          cont

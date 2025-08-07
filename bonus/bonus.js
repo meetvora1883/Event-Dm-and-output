@@ -27,9 +27,7 @@ const EVENT_BONUSES = {
   "Family raid (Attack)": { type: 'custom', amount: 15000 },
   "Family raid (Protection)": { type: 'custom', amount: 5000 },
   "State Object": { type: 'custom', amount: 8000 },
-  "Turf": { type: 'custom', amount: 0 }, // No bonus specified
   "Store robbery": { type: 'custom', amount: 15000 },
-  "Caravan delivery": { type: 'custom', amount: 0 },
   "Attacking Prison": { type: 'custom', amount: 10000 },
   "ℍ𝕒𝕣𝕓𝕠𝕣 (battle for the docks)": { type: 'parachute', amount: 25000 },
   "𝕎𝕖𝕒𝕡𝕠𝕟𝕤 𝔽𝕒𝕔𝕥𝕠𝕣𝕪": { type: 'kill', amount: 25000 },
@@ -40,20 +38,15 @@ const EVENT_BONUSES = {
   "𝔹𝕦𝕤𝕚𝕟𝕖𝕤𝕤 𝕎𝕒𝕣": { type: 'kill', amount: 80000 },
   "𝕍𝕚𝕟𝕖𝕪𝕒𝕣𝕕": { type: 'custom', amount: 20000 },
   "𝔸𝕥𝕥𝕒𝕔𝕜𝕚𝕟𝕘 ℙ𝕣𝕚𝕤𝕠𝕟 (𝕠𝕟 𝔽𝕣𝕚𝕕𝕒𝕪)": { type: 'custom', amount: 10000 },
-  "𝕂𝕚𝕟𝕘 𝕆𝕗 ℂ𝕒𝕪𝕠 ℙ𝕖𝕣𝕚𝕔𝕠 𝕀𝕤𝕝𝕒𝕟𝕕 (𝕠𝕟 𝕎𝕖𝕕𝕟𝕖𝕤𝕕𝕒𝕪 𝕒𝕟𝕕 𝕊𝕦𝕟𝕕𝕒𝕪)": { type: 'custom', amount: 0 },
-  "𝕃𝕖𝕗𝕥𝕠𝕧𝕖𝕣 ℂ𝕠𝕞𝕡𝕠𝕟𝕖𝕟𝕥𝕤": { type: 'custom', amount: 0 },
   "ℝ𝕒𝕥𝕚𝕟𝕘 𝔹𝕒𝕥𝕥𝕝𝕖": { type: 'kill', amount: 20000 },
   "𝔸𝕚𝕣𝕔𝕣𝕒𝕗𝕥 ℂ𝕒𝕣𝕣𝕚𝕖𝕣 (𝕠𝕟 𝕊𝕦𝕟𝕕𝕒𝕪)": { type: 'parachute', amount: 50000 },
-  "𝔹�𝕟𝕜 ℝ𝕠𝕓𝕓𝕖�𝕣𝕪": { type: 'custom', amount: 35000 },
+  "𝔹𝕒𝕟𝕜 ℝ𝕠𝕓𝕓𝕖𝕣𝕪": { type: 'custom', amount: 35000 },
   "ℍ𝕠𝕥𝕖𝕝 𝕋𝕒𝕜𝕖𝕠𝕧𝕖𝕣": { type: 'kill', amount: 20000 },
-  "Family War": { type: 'custom', amount: 0 },
-  "Money Printing Machine": { type: 'custom', amount: 0 },
   "Informal (Battle for business for unofficial organization)": { type: 'kill', amount: 50000 }
 };
 
 // Check if user is eligible for bonus (not founder/co-founder/high command)
-function isEligibleForBonus(member) {
-  const excludedRoles = ['1398888612388540538', '1398888612388540537', '1398888612388540539']; // Replace with actual role IDs
+function isEligibleForBonus(member, excludedRoles) {
   return !excludedRoles.some(roleId => member.roles.cache.has(roleId));
 }
 

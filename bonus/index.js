@@ -28,7 +28,7 @@ function initBonusCommands(client) {
     try {
       await addCustomBonus(user.id, user.username, amount, description);
       await interaction.reply({
-        content: `✅ Added ${amount} bonus to ${user.username}`,
+        content: `✅ Added $${amount} bonus to ${user.username}`,
         ephemeral: true
       });
     } catch (error) {
@@ -55,7 +55,7 @@ function initBonusCommands(client) {
     try {
       await lessBonus(user.id, user.username, amount, description);
       await interaction.reply({
-        content: `✅ Deducted ${amount} from ${user.username}'s bonus`,
+        content: `✅ Deducted $${amount} from ${user.username}'s bonus`,
         ephemeral: true
       });
     } catch (error) {

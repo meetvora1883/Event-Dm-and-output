@@ -904,7 +904,7 @@ async function processAttendance(eventName, date, users, sourceMessage, commandC
         const userBonus = initUserBonus(user.id);
         
         // Add bonus for attending the event (example: $100 per event)
-        const bonusAmount = 100;
+        const bonusAmount = 0;
         userBonus.total += bonusAmount;
         userBonus.history.push({
           type: 'event',

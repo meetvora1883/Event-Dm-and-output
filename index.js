@@ -1480,13 +1480,13 @@ async function processAttendance(eventName, date, users, sourceMessage, commandC
               { name: '📅 Date', value: date, inline: true },
               { 
                 name: '💰 Bonus Earned', 
-                value: 'No bonus for this event',
+                value: 'Bonus will be added soon',
                 inline: false
               },
               { 
                 name: '📝 Note', 
-                value: 'If you performed any activity, your bonus will be added soon.\n' +
-                       'If not received within 24 hours, please contact High Command.',
+                value: 'If you performed any activity (Like collect parachute, kills, etc...), Then bonus will be added soon.\n' +
+                       'If Bonus was not received within 24 hours, please contact High Command to add bonus.',
                 inline: false
               },
               { 

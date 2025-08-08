@@ -50,7 +50,8 @@ async function connectToMongoDB() {
 const EVENT_NAMES = [
   { name: "Family raid (Attack)", value: "family_raid_attack" },
   { name: "Family raid (Protection)", value: "family_raid_protection" },
-  { name: "State Object", value: "state_object" },
+  { name: "State Object (Attack)", value: "state_object_Attack" },
+  { name: "State Object (Protection)", value: "state_object_Protection" },
   { name: "Turf", value: "turf" },
   { name: "Store robbery", value: "store_robbery" },
   { name: "Caravan delivery", value: "caravan_delivery" },

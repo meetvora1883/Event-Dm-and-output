@@ -5,6 +5,13 @@ require('dotenv').config();
 // Add port for Render.com
 const PORT = process.env.PORT || 3000;
 
+// Static Outbound IP Addresses for Render.com
+const RENDER_OUTBOUND_IPS = [
+  '52.41.36.82',
+  '54.191.253.12',
+  '44.226.122.3'
+];
+
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -280,19 +287,11 @@ client.on('ready', async () => {
   console.log(`[${new Date().toISOString()}] 📌 Output Channel: ${CONFIG.OUTPUT_CHANNEL_ID} (${CONFIG.OUTPUT_CHANNEL_NAME})`);
   console.log(`[${new Date().toISOString()}] 👑 Admin Roles: ${CONFIG.ADMIN_ROLE_IDS.join(', ')}`);
   console.log(`[${new Date().toISOString()}] 👑 High Command Roles: ${CONFIG.HIGH_COMMAND_ROLE_IDS.join(', ')}`);
+  console.log(`[${new Date().toISOString()}] 🌐 Render Outbound IPs: ${RENDER_OUTBOUND_IPS.join(', ')}`);
   client.user.setActivity('Slayers Family Events', { type: 'WATCHING' });
   
   await connectToMongoDB();
   await registerCommands();
-  
-  // Start HTTP server for Render.com
-  const server = require('http').createServer((req, res) => {
-    res.writeHead(200);
-    res.end('Discord Bot is running');
-  });
-  server.listen(PORT, () => {
-    console.log(`[${new Date().toISOString()}] 🌐 HTTP server running on port ${PORT}`);
-  });
 });
 
 // Utility functions
@@ -1583,8 +1582,25 @@ async function processAttendance(eventName, date, users, sourceMessage, commandC
   }
 }
 
-// Start the bot
-client.login(CONFIG.DISCORD_TOKEN).catch(error => {
-  console.error(`\x1b[31m[${new Date().toISOString()}] 🛑 Failed to login: ${error.message}\x1b[0m`);
+// Start HTTP server and bot
+const server = require('http').createServer((req, res) => {
+  res.writeHead(200);
+  res.end('Discord Bot is running');
+});
+
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`[${new Date().toISOString()}] 🌐 HTTP server running on port ${PORT}`);
+  console.log(`[${new Date().toISOString()}] 🌐 Render Outbound IPs: ${RENDER_OUTBOUND_IPS.join(', ')}`);
+  
+  // Start the bot after server is listening
+  client.login(CONFIG.DISCORD_TOKEN).catch(error => {
+    console.error(`\x1b[31m[${new Date().toISOString()}] 🛑 Failed to login: ${error.message}\x1b[0m`);
+    process.exit(1);
+  });
+});
+
+// Handle server errors
+server.on('error', (error) => {
+  console.error(`\x1b[31m[${new Date().toISOString()}] 🛑 Server error: ${error.message}\x1b[0m`);
   process.exit(1);
 });
